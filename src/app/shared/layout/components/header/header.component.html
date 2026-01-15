@@ -1,0 +1,83 @@
+<!-- header.component.html -->
+<header class="bg-white shadow-md">
+  <div class="flex items-center justify-between h-16 px-4">
+    <!-- Menu hamburger pour mobile -->
+    <div class="flex items-center lg:hidden">
+      <button (click)="toggleMobileMenu()" class="text-gray-600 hover:text-blue-600 focus:outline-none">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
+        </svg>
+      </button>
+    </div>
+
+    <!-- Titre de la page actuelle -->
+    <div class="flex-1 px-4">
+<!--      <h1 class="text-lg font-semibold text-gray-800">{{ currentPageTitle }}</h1>-->
+    </div>
+
+    <!-- Barre de recherche -->
+    <div class="hidden md:flex items-center bg-gray-100 rounded-lg px-3 py-1 flex-1 max-w-md mx-4">
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+      </svg>
+      <input type="text" placeholder="Rechercher..." class="bg-transparent border-none outline-none px-3 py-1 w-full">
+    </div>
+
+    <!-- Notifications et Profil -->
+    <div class="flex items-center space-x-4">
+      <!-- Bouton notifications -->
+      <div class="relative">
+        <button class="text-gray-600 hover:text-blue-600 focus:outline-none p-1 rounded-full hover:bg-gray-100">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+          </svg>
+        </button>
+        <div *ngIf="unreadNotifications > 0" class="absolute top-0 right-0 bg-red-500 rounded-full w-4 h-4 flex items-center justify-center text-white text-xs">
+          {{ unreadNotifications }}
+        </div>
+      </div>
+
+      <!-- Menu profil -->
+      <div class="relative" (clickOutside)="profileMenuOpen = false">
+        <button (click)="toggleProfileMenu()" class="flex items-center space-x-2 focus:outline-none">
+          <div class="w-8 h-8 bg-blue-600 rounded-full overflow-hidden flex items-center justify-center text-white font-medium">
+            {{ userInitials }}
+          </div>
+          <span class="hidden md:inline text-sm text-gray-700">{{ userName }}</span>
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+          </svg>
+        </button>
+
+        <!-- Menu déroulant profil -->
+        <div *ngIf="profileMenuOpen" class="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg py-1 z-50">
+          <a routerLink="/user/profile" class="block px-4 py-2 text-sm text-gray-700 hover:bg-blue-50">
+            Mon profil
+          </a>
+          <a routerLink="/user/settings" class="block px-4 py-2 text-sm text-gray-700 hover:bg-blue-50">
+            Paramètres
+          </a>
+          <hr class="my-1">
+          <a (click)="logout()" class="block px-4 py-2 text-sm text-red-600 hover:bg-red-50 cursor-pointer">
+            Déconnexion
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Barre de recherche mobile -->
+  <div class="md:hidden px-4 pb-3">
+    <div class="flex items-center bg-gray-100 rounded-lg px-3 py-2">
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+      </svg>
+      <input type="text" placeholder="Rechercher..." class="bg-transparent border-none outline-none px-3 py-1 w-full">
+    </div>
+  </div>
+
+  <!-- Progress indicator subtil -->
+  <div class="h-1 w-full bg-gray-100">
+    <div class="h-full bg-gradient-to-r from-blue-500 to-indigo-600" [style.width.%]="pageProgress"></div>
+  </div>
+</header>

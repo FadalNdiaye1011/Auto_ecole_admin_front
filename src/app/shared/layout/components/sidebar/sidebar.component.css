@@ -1,0 +1,24 @@
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.sidebar-container {
+  transition: width 0.3s ease-in-out;
+}
+
+.router-link-active {
+  position: relative;
+  overflow: hidden;
+}
+
+.router-link-active::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  height: 100%;
+  width: 4px;
+  background-color: white;
+  animation: fadeIn 0.3s;
+}

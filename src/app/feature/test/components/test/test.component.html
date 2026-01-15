@@ -1,0 +1,522 @@
+<div class="bg-blue-50 min-h-screen">
+  <!-- En-tête de la page -->
+  <div class="bg-blue-600 text-white p-6 shadow-lg">
+    <h1 class="text-3xl font-bold">Gestion des catégories de test</h1>
+    <p class="text-blue-100">Créez, modifiez et supprimez les catégories</p>
+  </div>
+
+  <!-- Contenu principal -->
+  <div class="container mx-auto p-6">
+    <!-- Carte pour ajouter une catégorie -->
+    <div *ngIf="!isLoading" class="bg-white rounded-lg shadow-lg p-6 mb-8">
+      <h2 class="text-2xl font-semibold text-blue-800 mb-4">Ajouter une catégorie</h2>
+      <form [formGroup]="categoryForm" (submit)="addCategory()" class="flex flex-col md:flex-row gap-4">
+        <div class="flex-grow">
+          <input
+            type="text"
+            formControlName="libelle"
+            class="w-full px-4 py-3 border border-blue-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            placeholder="Nom de la catégorie"
+          />
+          <div
+            *ngIf="categoryForm.get('libelle')?.invalid && categoryForm.get('libelle')?.touched"
+            class="text-red-500 text-sm mt-1"
+          >
+            Le nom de la catégorie est requis
+          </div>
+        </div>
+        <button
+          type="submit"
+          [disabled]="categoryForm.invalid"
+          class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg transition-all duration-200 ease-in-out transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          Ajouter
+        </button>
+      </form>
+    </div>
+
+    <!-- Loader pour le chargement -->
+    <!-- <app-loader [isLoading]="isLoading" message="Chargement en cours..."></app-loader> -->
+    <app-categorie-skelleton *ngIf="isLoading"></app-categorie-skelleton>
+
+    <!-- Message si aucune catégorie n'est disponible -->
+    <app-empty-state
+      *ngIf="!isLoading && categories().length === 0"
+      title="Aucune catégorie disponible"
+      message="Ajoutez votre première catégorie de test en utilisant le formulaire ci-dessus"
+    ></app-empty-state>
+
+    <!-- Tableau des catégories -->
+    <app-data-table
+      *ngIf="!isLoading && categories().length > 0"
+      [items]="categories()"
+      [columns]="tableColumns"
+      [useTableMode]="true"
+      title="Liste des catégories"
+      labelKey="libelle"
+      subLabelKey="created_at"
+      itemCountLabel="catégorie(s) disponible(s)"
+      [showEditButton]="true"
+      [showDeleteButton]="true"
+      [showViewButton]="true"
+      (editItem)="openEditModal($event)"
+      (deleteItem)="openDeleteModal($event)"
+      (viewItem)="openManageTestsModal($event)"
+    ></app-data-table>
+  </div>
+</div>
+
+<!-- Modal de modification d'une catégorie -->
+<app-modal [isOpen]="showEditModal" title="Modifier la catégorie" (closed)="closeEditModal()">
+  <form [formGroup]="editForm" (submit)="saveCategory()" class="space-y-4">
+    <div>
+      <label class="block text-blue-700 mb-2 font-medium">Nom de la catégorie</label>
+      <input
+        type="text"
+        formControlName="libelle"
+        class="w-full px-4 py-3 border border-blue-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+      />
+      <div
+        *ngIf="editForm.get('libelle')?.invalid && editForm.get('libelle')?.touched"
+        class="text-red-500 text-sm mt-1"
+      >
+        Le nom de la catégorie est requis
+      </div>
+    </div>
+
+    <div class="flex justify-end gap-3 mt-6">
+      <button
+        type="button"
+        (click)="closeEditModal()"
+        class="px-5 py-2.5 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-lg transition-colors"
+      >
+        Annuler
+      </button>
+      <button
+        type="submit"
+        [disabled]="editForm.invalid"
+        class="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors disabled:opacity-50"
+      >
+        Enregistrer
+      </button>
+    </div>
+  </form>
+</app-modal>
+
+<!-- Modal de confirmation de suppression -->
+<app-confirm-modal
+  [isOpen]="showDeleteModal"
+  title="Confirmer la suppression"
+  message="Êtes-vous sûr de vouloir supprimer la catégorie"
+  [itemName]="categoryToDelete?.libelle"
+  confirmMessage=" ? Cette action est irréversible."
+  [isProcessing]="isDeleting"
+  (cancelled)="closeDeleteModal()"
+  (confirmed)="confirmDelete()"
+></app-confirm-modal>
+
+
+<!-- Modal de gestion des tests -->
+<div *ngIf="showManageTestsModal" class="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 backdrop-blur-sm">
+  <div class="bg-white w-full h-full flex flex-col overflow-hidden">
+    <!-- En-tête du modal -->
+    <div class="bg-blue-600 text-white px-4 sm:px-6 py-4 flex justify-between items-center">
+      <div>
+        <h3 class="text-lg sm:text-xl font-semibold">Gestion des tests</h3>
+        <span>{{selectedCategory?.libelle}}</span>
+      </div>
+      <button (click)="closeManageTestsModal()" class="text-white hover:text-blue-200 transition-colors">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+        </svg>
+      </button>
+    </div>
+
+    <!-- Navigation mobile -->
+    <div class="md:hidden bg-gray-100 border-b border-gray-200">
+      <div class="flex">
+        <button
+          (click)="activeTab = 'form'"
+          [ngClass]="{'bg-white text-blue-600 border-b-2 border-blue-600': activeTab === 'form', 'text-gray-500': activeTab !== 'form'}"
+          class="flex-1 py-3 px-4 text-center font-medium focus:outline-none transition-colors"
+        >
+          Formulaire
+        </button>
+        <button
+          (click)="activeTab = 'list'"
+          [ngClass]="{'bg-white text-blue-600 border-b-2 border-blue-600': activeTab === 'list', 'text-gray-500': activeTab !== 'list'}"
+          class="flex-1 py-3 px-4 text-center font-medium focus:outline-none transition-colors"
+        >
+          Liste ({{ tests().length }})
+        </button>
+      </div>
+    </div>
+
+    <!-- Contenu du modal -->
+    <div class="flex flex-1 flex-col md:flex-row overflow-hidden">
+<!-- Formulaire pour ajouter/modifier un test -->
+<div [ngClass]="{'hidden md:block': activeTab === 'list'}" class="w-full md:w-1/2 bg-white rounded-xl shadow-lg p-6 md:p-8 overflow-y-auto">
+  @if(isSubmitting){
+    <app-form-test-examen-skelleton></app-form-test-examen-skelleton>
+  }@else{
+    <form [formGroup]="testForm" (submit)="saveTest()" class="space-y-6">
+      <!-- En-tête du formulaire -->
+      <div class="border-b border-blue-100 pb-4">
+        <h2 class="text-xl font-bold text-blue-700">
+          {{ isEditingTest ? 'Modifier le test' : 'Créer un nouveau test' }}
+        </h2>
+      </div>
+
+      <!-- Nom du test -->
+      <div class="space-y-2">
+        <label class="block text-sm font-medium text-blue-700">Nom du test</label>
+        <input
+          type="text"
+          formControlName="libelle"
+          class="w-full px-4 py-3 bg-blue-50 border border-blue-200 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors"
+          placeholder="Entrez le nom du test"
+        />
+        <div *ngIf="testForm.get('libelle')?.invalid && testForm.get('libelle')?.touched" class="text-blue-600 text-sm mt-1 font-medium">
+          Le nom du test est requis
+        </div>
+      </div>
+
+      <!-- Questions -->
+      <div formArrayName="questions" class="space-y-6">
+        <div *ngFor="let question of questions.controls; let i = index" [formGroupName]="i"
+             class="bg-blue-50 border border-blue-100 rounded-xl p-5 shadow-sm">
+
+          <!-- En-tête de question -->
+          <div class="flex items-center justify-between mb-3">
+            <h3 class="font-semibold text-blue-700 flex items-center">
+              <span class="bg-blue-600 text-white w-6 h-6 rounded-full flex items-center justify-center text-sm mr-2">{{i + 1}}</span>
+              Question
+            </h3>
+            <button
+              type="button"
+              (click)="removeQuestion(i)"
+              class="text-blue-600 hover:text-blue-800 transition-colors flex items-center text-sm font-medium"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              </svg>
+              Supprimer
+            </button>
+          </div>
+
+          <!-- Texte de la question -->
+          <input
+            type="text"
+            formControlName="question"
+            class="w-full px-4 py-3 bg-white border border-blue-200 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors"
+            placeholder="Entrez la question"
+          />
+          <div *ngIf="questions.at(i).get('question')?.invalid && questions.at(i).get('question')?.touched" class="text-blue-600 text-sm mt-1 font-medium">
+            La question est requise
+          </div>
+
+          <!-- Image pour la question -->
+          <div class="mt-4">
+            <label class="block text-sm font-medium text-blue-700 mb-2">Image pour la question (optionnelle)</label>
+            <div class="border-2 border-dashed border-blue-300 rounded-lg p-4 bg-blue-50 hover:bg-blue-100 transition-colors cursor-pointer relative">
+              <input
+                type="file"
+                accept="image/jpeg,image/png,image/jpg"
+                (change)="onQuestionImageChange($event, i)"
+                class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+              />
+              <div class="text-center pointer-events-none">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10 mx-auto text-blue-400 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+                <p class="text-sm text-blue-600 font-medium">
+                  Cliquez pour uploader ou glissez-déposez
+                </p>
+                <p class="text-xs text-blue-500 mt-1">JPG, PNG (Max. 2MB)</p>
+              </div>
+            </div>
+
+            <!-- Prévisualisation de l'image -->
+            <div *ngIf="getQuestionImagePreview(i)" class="mt-3 relative inline-block">
+              <img [src]="getQuestionImagePreview(i)" alt="Preview" class="h-32 w-auto rounded-lg border-2 border-blue-300 shadow-sm">
+              <button
+                type="button"
+                (click)="removeQuestionImage(i)"
+                class="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600 transition-colors shadow-md"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+          </div>
+
+          <!-- Choix -->
+          <div formArrayName="choices" class="mt-4 space-y-4">
+            <div *ngFor="let choice of getChoices(i).controls; let j = index" [formGroupName]="j"
+                 class="bg-white border border-blue-100 rounded-lg p-4 shadow-sm">
+
+              <!-- En-tête de choix -->
+              <div class="flex items-center justify-between mb-2">
+                <h4 class="font-medium text-blue-700 flex items-center">
+                  <span class="bg-blue-200 text-blue-700 w-5 h-5 rounded-full flex items-center justify-center text-xs mr-2">{{j + 1}}</span>
+                  Choix
+                </h4>
+                <button
+                  type="button"
+                  (click)="removeChoice(i, j)"
+                  class="text-blue-600 hover:text-blue-800 transition-colors flex items-center text-xs font-medium"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                  </svg>
+                  Supprimer
+                </button>
+              </div>
+
+              <!-- Contenu du choix -->
+              <div class="flex flex-col space-y-2">
+                <input
+                  type="text"
+                  formControlName="choice_test"
+                  class="w-full px-4 py-2 bg-blue-50 border border-blue-200 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors"
+                  placeholder="Entrez le choix"
+                />
+                <div *ngIf="getChoices(i).at(j).get('choice_test')?.invalid && getChoices(i).at(j).get('choice_test')?.touched" class="text-blue-600 text-sm mt-1 font-medium">
+                  Le choix est requis
+                </div>
+
+                <!-- Bonne réponse -->
+                <label class="flex items-center space-x-2 mt-2 cursor-pointer">
+                  <div class="relative">
+                    <input
+                      type="checkbox"
+                      formControlName="is_correct"
+                      class="sr-only"
+                    />
+                    <div class="w-5 h-5 border-2 border-blue-300 rounded-md"></div>
+                    <div class="absolute inset-0 flex items-center justify-center transition-opacity"
+                         [ngClass]="{'opacity-100': getChoices(i).at(j).get('is_correct')?.value, 'opacity-0': !getChoices(i).at(j).get('is_correct')?.value}">
+                      <svg class="w-3 h-3 text-blue-600" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
+                      </svg>
+                    </div>
+                  </div>
+                  <span class="text-sm text-blue-700">Bonne réponse</span>
+                </label>
+              </div>
+            </div>
+
+            <!-- Ajouter un choix -->
+            <button
+              type="button"
+              (click)="addChoice(i)"
+              class="w-full py-2 px-4 mt-3 bg-blue-100 hover:bg-blue-200 text-blue-700 rounded-lg border border-blue-200 transition-colors flex items-center justify-center"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+              </svg>
+              Ajouter un choix
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Ajouter une question -->
+      <button
+        type="button"
+        (click)="addQuestion()"
+        class="w-full py-3 px-4 bg-blue-100 hover:bg-blue-200 text-blue-700 rounded-xl border border-blue-200 transition-colors flex items-center justify-center font-medium"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+        </svg>
+        Ajouter une nouvelle question
+      </button>
+
+      <!-- Actions -->
+      <div class="flex justify-end gap-3 mt-8 pt-4 border-t border-blue-100">
+        <button
+          type="button"
+          (click)="closeManageTestsModal()"
+          class="px-5 py-2.5 bg-white hover:bg-blue-50 text-blue-700 rounded-lg border border-blue-300 transition-colors font-medium"
+        >
+          Annuler
+        </button>
+        <button *ngIf="isEditingTest"
+          type="button"
+          (click)="cancelEdit()"
+          class="px-5 py-2.5 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg border border-blue-200 transition-colors font-medium"
+        >
+          Annuler la modification
+        </button>
+        <button
+          type="submit"
+          [disabled]="testForm.invalid"
+          class="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg disabled:opacity-50 transition-colors font-medium flex items-center"
+        >
+          <svg *ngIf="isEditingTest" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+          </svg>
+          <svg *ngIf="!isEditingTest" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+          </svg>
+          {{ isEditingTest ? 'Enregistrer les modifications' : 'Ajouter le test' }}
+        </button>
+      </div>
+    </form>
+  }
+</div>
+
+      <!-- Liste des tests -->
+      <div [ngClass]="{'hidden md:flex': activeTab === 'form'}" class="w-full md:w-1/2 bg-gray-50 border-l border-gray-200 flex flex-col">
+        <div class="p-4 sm:p-6">
+          <h4 class="text-lg font-semibold mb-4 text-blue-800">Liste des tests ({{ tests().length }})</h4>
+
+          <!-- Barre de recherche -->
+          <div class="relative">
+            <input
+              type="text"
+              placeholder="Rechercher un test..."
+              class="w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 pr-10"
+            />
+            <div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+            </div>
+          </div>
+        </div>
+
+        <!-- Liste des tests -->
+        <!-- Liste des tests -->
+<div class="flex-1 overflow-y-auto p-4 sm:p-6 pt-0">
+  <div *ngIf="!tests() || tests().length === 0" class="text-center py-12 text-gray-500">
+    Aucun test disponible pour cette catégorie
+  </div>
+
+  <div class="grid grid-cols-1 gap-4">
+    <div *ngFor="let test of tests()" class="bg-white rounded-lg shadow p-4 border-l-4 border-blue-500">
+      <div class="flex justify-between items-start">
+        <h5 class="font-medium text-lg text-blue-800">{{ test.libelle }}</h5>
+        <span class="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full">
+          {{ test.questions.length }} question(s)
+        </span>
+      </div>
+      <div class="mt-2 text-sm text-gray-600">
+        Créé le : {{ test.created_at | date: 'dd/MM/yyyy' }}
+      </div>
+      <div class="flex flex-wrap gap-2 mt-3 pt-2 border-t border-gray-100">
+        <button
+          (click)="openEditTestModal(test)"
+          class="text-blue-600 hover:text-blue-800 text-sm flex items-center"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+          </svg>
+          Modifier
+        </button>
+        <button
+          (click)="deleteTest(test)"
+          class="text-red-600 hover:text-red-800 text-sm flex items-center"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+          </svg>
+          Supprimer
+        </button>
+        <button
+          (click)="viewTest(test)"
+          class="text-green-600 hover:text-green-800 text-sm flex items-center"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+          </svg>
+          Voir le test
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+
+
+<!-- Modal pour afficher le test complet -->
+<div *ngIf="showViewTestModal" class="fixed inset-0 bg-blue-900/80 flex items-center justify-center z-50 backdrop-blur-sm transition-opacity duration-300">
+  <div class="bg-white w-full max-w-3xl rounded-lg shadow-lg p-0 overflow-hidden transform transition-all duration-300 scale-100">
+    <!-- En-tête du modal aux couleurs de l'interface -->
+    <div class="bg-blue-600 p-4 relative">
+      <h3 class="text-xl font-semibold text-white">{{ selectedTest?.libelle }}</h3>
+      <button (click)="closeViewTestModal()" class="absolute top-4 right-4 text-white/80 hover:text-white transition-colors">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+        </svg>
+      </button>
+    </div>
+
+    <!-- Corps du modal -->
+    <div class="p-6 max-h-[70vh] overflow-y-auto">
+      <div *ngIf="selectedTest?.questions?.length === 0" class="flex flex-col items-center justify-center py-10">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-16 w-16 text-gray-300 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+        </svg>
+        <p class="text-gray-500 text-center">Aucune question disponible pour ce test.</p>
+      </div>
+
+      <div *ngFor="let question of selectedTest?.questions; let i = index"
+           class="mb-4 bg-white rounded-lg overflow-hidden border border-gray-200 transition-all hover:shadow-md">
+        <div class="bg-blue-50 p-3 border-b border-gray-200 flex items-center">
+          <div class="bg-blue-600 text-white h-6 w-6 rounded-full flex items-center justify-center mr-3 flex-shrink-0">
+            <span class="text-sm font-medium">{{i + 1}}</span>
+          </div>
+          <h4 class="font-medium text-gray-800">{{ question.question }}</h4>
+        </div>
+
+        <div class="p-3">
+          <div *ngFor="let choice of question.choices; let j = index"
+               class="py-2 px-3 rounded mb-2 flex items-center transition-colors"
+               [ngClass]="{
+                 'bg-green-50 border-l-4 border-green-500': choice.is_correct,
+                 'hover:bg-gray-50': !choice.is_correct
+               }">
+            <div class="w-6 h-6 rounded-full flex items-center justify-center mr-3 flex-shrink-0"
+                 [ngClass]="{
+                   'bg-green-500 text-white': choice.is_correct,
+                   'bg-blue-100 text-blue-600': !choice.is_correct
+                 }">
+              <span class="text-xs">{{ ['A', 'B', 'C', 'D', 'E', 'F'][j] }}</span>
+            </div>
+            <span [ngClass]="{
+              'text-gray-800': !choice.is_correct,
+              'text-green-700 font-medium': choice.is_correct
+            }">
+              {{ choice.choice_test }}
+            </span>
+            <span *ngIf="choice.is_correct" class="ml-2 px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
+              Correct
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Pied du modal -->
+    <div class="border-t border-gray-200 p-4 flex justify-between items-center bg-gray-50">
+      <div class="text-sm text-gray-500">
+        {{ selectedTest?.questions?.length || 0 }} question(s) au total
+      </div>
+      <button
+        (click)="closeViewTestModal()"
+        class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+      >
+        Fermer
+      </button>
+    </div>
+  </div>
+</div>

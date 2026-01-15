@@ -1,0 +1,6 @@
+<div *ngIf="isLoading" class="flex justify-center my-12" style="z-index: 999999;">
+  <div class="loader text-center">
+    <div class="w-16 h-16 border-t-4 border-b-4 border-blue-600 rounded-full animate-spin mx-auto"></div>
+    <p *ngIf="message" class="mt-4 text-blue-600 font-medium">{{ message }}</p>
+  </div>
+</div>

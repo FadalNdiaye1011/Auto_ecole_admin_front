@@ -1,0 +1,357 @@
+<div class="bg-blue-50 min-h-screen">
+  <!-- En-tête de la page -->
+  <div class="bg-blue-600 text-white p-6 shadow-lg">
+    <h1 class="text-3xl font-bold">Gestion des catégories de cours</h1>
+    <p class="text-blue-100">Créez, modifiez et supprimez les catégories</p>
+  </div>
+
+  <!-- Contenu principal -->
+  <div class="container mx-auto p-6">
+    <!-- Carte pour ajouter une catégorie -->
+    <div *ngIf="!isLoading" class="bg-white rounded-lg shadow-lg p-6 mb-8">
+      <h2 class="text-2xl font-semibold text-blue-800 mb-4">Ajouter une catégorie</h2>
+      <form [formGroup]="categoryForm" (submit)="addCategory()" class="flex flex-col md:flex-row gap-4">
+        <div class="flex-grow">
+          <input
+            type="text"
+            formControlName="libelle"
+            class="w-full px-4 py-3 border border-blue-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            placeholder="Nom de la catégorie"
+          />
+          <div
+            *ngIf="categoryForm.get('libelle')?.invalid && categoryForm.get('libelle')?.touched"
+            class="text-red-500 text-sm mt-1"
+          >
+            Le nom de la catégorie est requis
+          </div>
+        </div>
+        <button
+          type="submit"
+          [disabled]="categoryForm.invalid"
+          class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg transition-all duration-200 ease-in-out transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          Ajouter
+        </button>
+      </form>
+    </div>
+
+
+    <!-- <app-loader [isLoading]="isLoading" message="Chargement en cours..."></app-loader> -->
+     <app-categorie-skelleton *ngIf="isLoading"></app-categorie-skelleton>
+
+    <!-- Message si aucune catégorie n'est disponible -->
+    <app-empty-state
+      *ngIf="!isLoading && categories().length === 0"
+      title="Aucune catégorie disponible"
+      message="Ajoutez votre première catégorie de cours en utilisant le formulaire ci-dessus"
+    ></app-empty-state>
+
+    <!-- Tableau des catégories -->
+    <app-data-table
+      *ngIf="!isLoading && categories().length > 0"
+      [items]="categories()"
+      [columns]="tableColumns"
+      [useTableMode]="true"
+      title="Liste des catégories"
+      labelKey="libelle"
+      subLabelKey="created_at"
+      itemCountLabel="catégorie(s) disponible(s)"
+      [showEditButton]="true"
+      [showDeleteButton]="true"
+      [showViewButton]="true"
+      (editItem)="openEditModal($event)"
+      (deleteItem)="openDeleteModal($event)"
+      (viewItem)="openManageCoursesModal($event)"
+    ></app-data-table>
+  </div>
+</div>
+
+<!-- Modal de modification d'une catégorie -->
+<app-modal [isOpen]="showEditModal" title="Modifier la catégorie" (closed)="closeEditModal()">
+  <form [formGroup]="editForm" (submit)="saveCategory()" class="space-y-4">
+    <div>
+      <label class="block text-blue-700 mb-2 font-medium">Nom de la catégorie</label>
+      <input
+        type="text"
+        formControlName="libelle"
+        class="w-full px-4 py-3 border border-blue-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+      />
+      <div
+        *ngIf="editForm.get('libelle')?.invalid && editForm.get('libelle')?.touched"
+        class="text-red-500 text-sm mt-1"
+      >
+        Le nom de la catégorie est requis
+      </div>
+    </div>
+
+    <div class="flex justify-end gap-3 mt-6">
+      <button
+        type="button"
+        (click)="closeEditModal()"
+        class="px-5 py-2.5 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-lg transition-colors"
+      >
+        Annuler
+      </button>
+      <button
+        type="submit"
+        [disabled]="editForm.invalid"
+        class="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors disabled:opacity-50"
+      >
+        Enregistrer
+      </button>
+    </div>
+  </form>
+</app-modal>
+
+<!-- Modal de confirmation de suppression -->
+<app-confirm-modal
+  [isOpen]="showDeleteModal"
+  title="Confirmer la suppression"
+  message="Êtes-vous sûr de vouloir supprimer la catégorie"
+  [itemName]="categoryToDelete?.libelle"
+  confirmMessage=" ? Cette action est irréversible."
+  [isProcessing]="isDeleting"
+  (cancelled)="closeDeleteModal()"
+  (confirmed)="confirmDelete()"
+></app-confirm-modal>
+
+<!-- Modal de gestion des cours -->
+<div *ngIf="showManageCoursesModal" class="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 backdrop-blur-sm">
+  <div class="bg-white w-full h-full flex flex-col overflow-hidden">
+    <!-- En-tête du modal -->
+    <div class="bg-blue-600 text-white px-4 sm:px-6 py-4 flex justify-between items-center">
+      <div>
+        <h3 class="text-lg sm:text-xl font-semibold">Gestion des cours</h3>
+        <span>{{selectedCategory?.libelle}}</span>
+      </div>
+      <button (click)="closeManageCoursesModal()" class="text-white hover:text-blue-200 transition-colors">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+        </svg>
+      </button>
+    </div>
+
+    <!-- Navigation mobile -->
+    <div class="md:hidden bg-gray-100 border-b border-gray-200">
+      <div class="flex">
+        <button
+          (click)="activeTab = 'form'"
+          [ngClass]="{'bg-white text-blue-600 border-b-2 border-blue-600': activeTab === 'form', 'text-gray-500': activeTab !== 'form'}"
+          class="flex-1 py-3 px-4 text-center font-medium focus:outline-none transition-colors"
+        >
+          Formulaire
+        </button>
+        <button
+          (click)="activeTab = 'list'"
+          [ngClass]="{'bg-white text-blue-600 border-b-2 border-blue-600': activeTab === 'list', 'text-gray-500': activeTab !== 'list'}"
+          class="flex-1 py-3 px-4 text-center font-medium focus:outline-none transition-colors"
+        >
+          Liste ({{ selectedCategory?.cours?.length || 0 }})
+        </button>
+      </div>
+    </div>
+
+    <!-- Contenu du modal -->
+    <div class="flex flex-1 flex-col md:flex-row overflow-hidden">
+      <!-- Formulaire pour ajouter/modifier un cours -->
+      <div [ngClass]="{'hidden md:block': activeTab === 'list'}" class="w-full md:w-1/2 p-4 sm:p-6 overflow-y-auto">
+        <form [formGroup]="courseForm" (submit)="saveCourse()" class="space-y-4">
+          <div class="grid grid-cols-1 gap-4">
+            <div>
+              <label class="block text-sm font-medium text-gray-700">Nom du cours</label>
+              <input
+                type="text"
+                formControlName="libelle"
+                class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                placeholder="Entrez le nom du cours"
+              />
+              <div *ngIf="courseForm.get('libelle')?.invalid && courseForm.get('libelle')?.touched" class="text-red-500 text-xs mt-1">
+                Le nom du cours est requis
+              </div>
+            </div>
+
+            <div>
+              <label class="block text-sm font-medium text-gray-700">Description</label>
+              <textarea
+                formControlName="description"
+                class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                placeholder="Description détaillée du cours"
+                rows="4"
+              ></textarea>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label class="block text-sm font-medium text-gray-700">Prix (€)</label>
+                <div class="mt-1 relative rounded-md shadow-sm">
+                  <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <span class="text-gray-500 sm:text-sm">€</span>
+                  </div>
+                  <input
+                    type="number"
+                    step="0.01"
+                    formControlName="prix"
+                    class="pl-7 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                    placeholder="0.00"
+                  />
+                </div>
+                <div *ngIf="courseForm.get('prix')?.invalid && courseForm.get('prix')?.touched" class="text-red-500 text-xs mt-1">
+                  Le prix est requis
+                </div>
+              </div>
+
+              <div>
+                <label class="block text-sm font-medium text-gray-700">Fichier</label>
+                <div class="mt-1 flex items-center">
+                  <label class="w-full flex justify-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 cursor-pointer">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                    </svg>
+                    <span class="truncate">Choisir un fichier</span>
+                    <input type="file" (change)="onFileChange($event)" class="hidden" />
+                  </label>
+                </div>
+                <div *ngIf="selectedFile" class="text-sm text-gray-500 mt-1 truncate">
+                  Fichier: {{ selectedFile.name }}
+                </div>
+                <div *ngIf="courseForm.get('fichier')?.value && !selectedFile" class="text-sm text-blue-500 mt-1 truncate">
+                  <a [href]="courseForm.get('fichier')?.value" target="_blank" class="flex items-center hover:underline">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                    </svg>
+                    Voir le fichier actuel
+                  </a>
+                </div>
+              </div>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label class="block text-sm font-medium text-gray-700">Durée d'expiration</label>
+                <input
+                  type="number"
+                  formControlName="duree_expiration"
+                  class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                  placeholder="Nombre"
+                  min="1"
+                />
+              </div>
+
+              <div>
+                <label class="block text-sm font-medium text-gray-700">Unité d'expiration</label>
+                <select
+                  formControlName="unite_expiration"
+                  class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                >
+                  <option value="jours">Jours</option>
+                  <option value="mois">Mois</option>
+                  <option value="années">Années</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <!-- Boutons d'action -->
+          <div class="flex flex-wrap justify-end gap-3 mt-6">
+            <button
+              type="button"
+              (click)="closeManageCoursesModal()"
+              class="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-md transition-colors"
+            >
+              Annuler
+            </button>
+            <button *ngIf="isEditingCourse"
+              type="button"
+              (click)="cancelEdit()"
+              class="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-md transition-colors"
+            >
+              Annuler La modification
+            </button>
+            <button
+              type="submit"
+              [disabled]="courseForm.invalid"
+              class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md disabled:opacity-50 transition-colors flex items-center"
+            >
+              <svg *ngIf="isSubmitting" class="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg>
+              {{ isEditingCourse ? 'Enregistrer les modifications' : 'Ajouter le cours' }}
+            </button>
+          </div>
+        </form>
+      </div>
+
+      <!-- Liste des cours -->
+      <div [ngClass]="{'hidden md:flex': activeTab === 'form'}" class="w-full md:w-1/2 bg-gray-50 border-l border-gray-200 flex flex-col">
+        <div class="p-4 sm:p-6">
+          <h4 class="text-lg font-semibold mb-4 text-blue-800 md:block hidden">Liste des cours ({{ selectedCategory?.cours?.length || 0 }})</h4>
+
+          <!-- Barre de recherche -->
+          <div class="relative">
+            <input
+              type="text"
+              [(ngModel)]="searchQuery"
+              (ngModelChange)="onSearchChange($event)"
+              placeholder="Rechercher un cours..."
+              class="w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 pr-10"
+            />
+            <div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+            </div>
+          </div>
+        </div>
+
+        <!-- Liste des cours -->
+        <div class="flex-1 overflow-y-auto p-4 sm:p-6 pt-0">
+          <div *ngIf="!selectedCategory?.cours || selectedCategory?.cours?.length === 0" class="text-center py-12 text-gray-500">
+            Aucun cours disponible pour cette catégorie
+          </div>
+
+          <div class="grid grid-cols-1 gap-4">
+            <div *ngFor="let cours of filteredCourses" class="bg-white rounded-lg shadow p-4 border-l-4 border-blue-500">
+              <div class="flex justify-between items-start">
+                <h5 class="font-medium text-lg text-blue-800">{{ cours.libelle }}</h5>
+                <span class="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full">{{ cours.prix }} Fcfa</span>
+              </div>
+              <p class="text-sm text-gray-600 mt-2">{{ cours.description || 'Aucune description' }}</p>
+              <div class="flex flex-wrap gap-3 mt-3">
+                <div class="flex items-center text-xs text-gray-500">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  Expire dans: {{ cours.duree_expiration }} {{ cours.unite_expiration }}
+                </div>
+                <div *ngIf="cours.fichier" class="flex items-center text-xs text-blue-600">
+                  <a [href]="cours.fichier" target="_blank" class="hover:underline flex items-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    Voir le fichier
+                  </a>
+                </div>
+              </div>
+              <div class="flex flex-wrap gap-2 mt-3 pt-2 border-t border-gray-100">
+                <button (click)="editCourse(cours)" class="text-blue-600 hover:text-blue-800 text-sm flex items-center">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                  </svg>
+                  Modifier
+                </button>
+                <button (click)="deleteCourse(cours)" class="text-red-600 hover:text-red-800 text-sm flex items-center">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                  </svg>
+                  Supprimer
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
