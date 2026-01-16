@@ -8,10 +8,8 @@ on:
 
 jobs:
   build:
-    runs-on: ${{matrix.os}}
-    strategy:
-      matrix:
-        os: [ubuntu-latest,windows-latest,macOs-latest]
+    runs-on: ubuntu-latest
+
 
     steps:
       - name: Checkout code
@@ -28,3 +26,12 @@ jobs:
 
       - name: Build Angular app
         run: npm run build -- --configuration=production
+
+      - name: Build and Push Docker Image
+        uses: aleskxyz/build-push@v1
+        with:
+          image_name: fadal1011/autoecole
+          registry_address: docker.io
+          registry_username: ${{ secrets.DOCKER_USERNAME }}
+          registry_password: ${{ secrets.DOCKER_PASSWORD }}
+
