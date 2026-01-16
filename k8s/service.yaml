@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: autoecole-service
+  namespace: default
+  labels:
+    app: autoecole
+spec:
+  type: LoadBalancer  # Ou NodePort si pas de LoadBalancer disponible
+  selector:
+    app: autoecole
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 4200
+      name: http

@@ -1,0 +1,25 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: autoecole-ingress
+  namespace: default
+  annotations:
+    kubernetes.io/ingress.class: "nginx"
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"  # Si tu utilises cert-manager
+spec:
+  rules:
+    - host: autoecole.ton-domaine.com  # Remplace par ton domaine
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: autoecole-service
+                port:
+                  number: 80
+  # Décommente pour HTTPS
+  # tls:
+  # - hosts:
+  #   - autoecole.ton-domaine.com
+  #   secretName: autoecole-tls
