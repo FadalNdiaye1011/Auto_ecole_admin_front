@@ -26,7 +26,7 @@ RUN npm install -g serve
 # ⚠️ Remplace "auto-ecole-admin" par le nom réel du dossier dans dist
 COPY --from=build /app/dist /app/dist
 
-EXPOSE 3000
+EXPOSE 4200
 
 # Servir l'app Angular
-CMD ["serve", "-s", "dist", "-l", "3000"]
+CMD ["serve", "-s", "dist/auto-ecole", "-l", "4200"]
