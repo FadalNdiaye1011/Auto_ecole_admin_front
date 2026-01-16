@@ -46,36 +46,25 @@ jobs:
             fadal1011/autoecole:${{ steps.image_tag.outputs.tag }}
             fadal1011/autoecole:latest
 
-      # Mettre à jour le manifeste Kubernetes dans un repo GitOps
+      # Mettre à jour le manifeste Kubernetes dans le repo GitOps
       - name: Update Kubernetes manifest
         if: github.ref == 'refs/heads/main'
+        env:
+          GIT_TOKEN: ${{ secrets.GIT_ARGO_TOKEN }}
+          IMAGE_TAG: ${{ steps.image_tag.outputs.tag }}
         run: |
-          git config --global user.email "github-actions@github.com"
-          git config --global user.name "GitHub Actions"
+          # Configuration Git
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git config --global user.name "github-actions[bot]"
 
-          # Clone le repo de manifestes (peut être le même repo ou un repo séparé)
-          git clone https://${{ secrets.GIT_TOKEN }}@github.com/ton-org/autoecole-gitops.git
+          # Clone le repo GitOps avec le token
+          git clone https://${GIT_TOKEN}@github.com/ton-username/autoecole-gitops.git
           cd autoecole-gitops
 
           # Mettre à jour l'image dans deployment.yaml
-          sed -i "s|image: fadal1011/autoecole:.*|image: fadal1011/autoecole:${{ steps.image_tag.outputs.tag }}|g" k8s/deployment.yaml
+          sed -i "s|image: fadal1011/autoecole:.*|image: fadal1011/autoecole:${IMAGE_TAG}|g" k8s/deployment.yaml
 
-          # Commit et push
+          # Commit et push les changements
           git add k8s/deployment.yaml
-          git commit -m "Update image to ${{ steps.image_tag.outputs.tag }}"
-          git push origin main
-
-      # Alternative : Utiliser Kustomize pour mettre à jour l'image
-      - name: Update with Kustomize (Alternative)
-        if: false  # Désactivé par défaut, utilise l'une ou l'autre méthode
-        run: |
-          # Installer Kustomize
-          curl -s "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh" | bash
-
-          # Mettre à jour l'image
-          cd autoecole-gitops/k8s
-          kustomize edit set image fadal1011/autoecole=fadal1011/autoecole:${{ steps.image_tag.outputs.tag }}
-
-          git add .
-          git commit -m "Update image via Kustomize to ${{ steps.image_tag.outputs.tag }}"
+          git commit -m "chore: update image to ${IMAGE_TAG}" || echo "No changes to commit"
           git push origin main
