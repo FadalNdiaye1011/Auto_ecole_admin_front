@@ -19,14 +19,11 @@ FROM node:20-alpine
 
 WORKDIR /app
 
-# Installer un serveur statique léger
 RUN npm install -g serve
 
-# Copier le build Angular
-# ⚠️ Remplace "auto-ecole-admin" par le nom réel du dossier dans dist
 COPY --from=build /app/dist /app/dist
 
 EXPOSE 4200
 
-# Servir l'app Angular
-CMD ["serve", "-s", "dist/auto-ecole", "-l", "4200"]
+# ⚠️ IMPORTANT : browser
+CMD ["serve", "-s", "dist/auto-ecole/browser", "-l", "4200"]
