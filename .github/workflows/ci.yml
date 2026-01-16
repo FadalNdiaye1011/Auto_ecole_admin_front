@@ -58,8 +58,9 @@ jobs:
           git config --global user.name "github-actions[bot]"
 
           # Clone le repo GitOps avec le token
-          git clone https://${GIT_TOKEN}@github.com/ton-username/autoecole-gitops.git
-          cd autoecole-gitops
+          git clone https://${GIT_TOKEN}@github.com/FadalNdiaye1011/Auto_ecole_admin_front.git
+          cd Auto_ecole_admin_front
+
 
           # Mettre à jour l'image dans deployment.yaml
           sed -i "s|image: fadal1011/autoecole:.*|image: fadal1011/autoecole:${IMAGE_TAG}|g" k8s/deployment.yaml
