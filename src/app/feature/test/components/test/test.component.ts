@@ -1,307 +1,288 @@
-import { Component, OnInit, signal } from '@angular/core';
-import { FormBuilder, FormGroup, Validators, FormArray } from '@angular/forms';
+import { Component, signal } from '@angular/core';
 import { CategorieTest } from '../../interfaces/categorie-test';
-import { ResponseData } from '../../../../core/interfaces/response-data';
+import { FormArray, FormBuilder, FormGroup, Validators } from '@angular/forms';
+import { Test } from '../../interfaces/test';
+import { TestServiceService } from '../../services/test-service.service';
 import { ToastService } from '../../../../core/services/toast.service';
 import { AlertService } from '../../../../core/services/Alert/alert.service';
-import { TestServiceService } from '../../services/test-service.service';
-import { Test } from '../../interfaces/test';
+import { ResponseData } from '../../../../core/interfaces/response-data';
 
 @Component({
   selector: 'app-test',
   standalone: false,
   templateUrl: './test.component.html',
-  styleUrls: ['./test.component.css']
+  styleUrl: './test.component.css'
 })
-export class TestComponent implements OnInit {
+export class TestComponent {
 
-  // Variables d'état
+  // ── État général ────────────────────────────────────────────
   isLoading = true;
   isSubmitting = false;
   isDeleting = false;
   activeTab: 'form' | 'list' = 'form';
 
-  // Variables pour les modals
+  // ── Modals catégories ───────────────────────────────────────
   showEditModal = false;
   showDeleteModal = false;
-  showManageTestsModal = false;
+  showManageTestModal = false;
   modalClosing = false;
   categoryToEdit: CategorieTest | null = null;
   categoryToDelete: CategorieTest | null = null;
   selectedCategory: CategorieTest | null = null;
 
-  // Variables pour la gestion des tests
-  selectedFile: File | null = null;
+  // ── État édition test ───────────────────────────────────────
   isEditingTest = false;
   testToEdit: any = null;
 
-  // Stockage des images de questions avec leur prévisualisation
-  questionImages: Map<number, { file: File | null, preview: string | null, existingUrl?: string }> = new Map();
+  // ── Images : exercice et questions ─────────────────────────
+  exerciceImages: Map<number, { file: File | null; preview: string | null; existingUrl?: string }> = new Map();
+  questionImages: Map<string, { file: File | null; preview: string | null; existingUrl?: string }> = new Map();
 
-  // Variables pour les formulaires
+  // ── Formulaires ─────────────────────────────────────────────
   categoryForm: FormGroup;
   editForm: FormGroup;
   testForm: FormGroup;
 
   tests = signal<Test[]>([]);
+  categories = signal<CategorieTest[]>([]);
 
-  // Colonnes du tableau
-  tableColumns = [
-    { key: 'libelle', label: 'Libellé' },
-  ];
-
-  // Variables pour le modal de visualisation du test
+  // ── Modal visualisation ─────────────────────────────────────
   showViewTestModal = false;
   selectedTest: any = null;
 
-  // Liste des catégories
-  categories = signal<CategorieTest[]>([]);
+  tableColumns = [{ key: 'libelle', label: 'Libellé' }];
 
   constructor(
-    private categorieService: TestServiceService,
+    private testService: TestServiceService,
     private fb: FormBuilder,
     private toastService: ToastService,
     private alertService: AlertService
   ) {
-    this.categoryForm = this.fb.group({
-      libelle: ['', Validators.required]
-    });
+    this.categoryForm = this.fb.group({ libelle: ['', Validators.required] });
+    this.editForm     = this.fb.group({ id: [''], libelle: ['', Validators.required] });
+    this.testForm     = this._buildTestForm();
+  }
 
-    this.editForm = this.fb.group({
-      id: [''],
-      libelle: ['', Validators.required]
-    });
+  ngOnInit(): void { this.loadCategories(); }
 
-    this.testForm = this.fb.group({
-      libelle: ['', Validators.required],
+  // ────────────────────────────────────────────────────────────
+  // HELPERS FORMULAIRE
+  // ────────────────────────────────────────────────────────────
+
+  private _buildTestForm(): FormGroup {
+    return this.fb.group({
+      libelle:    ['', Validators.required],
+      exercices:  this.fb.array([])
+    });
+  }
+
+  get exercices(): FormArray {
+    return this.testForm.get('exercices') as FormArray;
+  }
+
+  getQuestions(eIdx: number): FormArray {
+    return this.exercices.at(eIdx).get('questions') as FormArray;
+  }
+
+  getChoices(eIdx: number, qIdx: number): FormArray {
+    return this.getQuestions(eIdx).at(qIdx).get('choices') as FormArray;
+  }
+
+  // ── Exercice ────────────────────────────────────────────────
+
+  addExercice(): void {
+    this.exercices.push(this.fb.group({
+      id:        [null],
+      libelle:   ['', Validators.required],
+      image:     [null],
+      ordre:     [this.exercices.length + 1],
       questions: this.fb.array([])
+    }));
+  }
+
+  removeExercice(eIdx: number): void {
+    this.exercices.removeAt(eIdx);
+    this.exerciceImages.delete(eIdx);
+    const newEImg = new Map<number, any>();
+    this.exerciceImages.forEach((v, k) => newEImg.set(k > eIdx ? k - 1 : k, v));
+    this.exerciceImages = newEImg;
+    const newQImg = new Map<string, any>();
+    this.questionImages.forEach((v, k) => {
+      const [ei, qi] = k.split('_').map(Number);
+      if (ei === eIdx) return;
+      newQImg.set(`${ei > eIdx ? ei - 1 : ei}_${qi}`, v);
     });
+    this.questionImages = newQImg;
   }
 
-  ngOnInit(): void {
-    this.loadCategories();
-  }
+  // ── Question ────────────────────────────────────────────────
 
-  get questions(): FormArray {
-    return this.testForm.get('questions') as FormArray;
-  }
-
-  getChoices(questionIndex: number): FormArray {
-    return this.questions.at(questionIndex).get('choices') as FormArray;
-  }
-
-  addQuestion(): void {
-    const questionGroup = this.fb.group({
-      id: [null],
+  addQuestion(eIdx: number): void {
+    this.getQuestions(eIdx).push(this.fb.group({
+      id:       [null],
       question: ['', Validators.required],
-      image: [null],
-      choices: this.fb.array([])
-    });
-
-    this.questions.push(questionGroup);
-    this.testForm.markAsTouched();
-    this.testForm.updateValueAndValidity();
+      image:    [null],
+      ordre:    [this.getQuestions(eIdx).length + 1],
+      choices:  this.fb.array([])
+    }));
   }
 
-  addChoice(questionIndex: number): void {
-    const choices = this.getChoices(questionIndex);
-    const choiceGroup = this.fb.group({
-      id: [null],
+  removeQuestion(eIdx: number, qIdx: number): void {
+    this.getQuestions(eIdx).removeAt(qIdx);
+    this.questionImages.delete(`${eIdx}_${qIdx}`);
+    const updated = new Map<string, any>();
+    this.questionImages.forEach((v, k) => {
+      const [ei, qi] = k.split('_').map(Number);
+      if (ei === eIdx && qi === qIdx) return;
+      updated.set(ei === eIdx && qi > qIdx ? `${ei}_${qi - 1}` : k, v);
+    });
+    this.questionImages = updated;
+  }
+
+  // ── Choix ───────────────────────────────────────────────────
+
+  addChoice(eIdx: number, qIdx: number): void {
+    this.getChoices(eIdx, qIdx).push(this.fb.group({
+      id:          [null],
       choice_test: ['', Validators.required],
-      is_correct: [false]
-    });
-
-    choices.push(choiceGroup);
-    this.testForm.markAsTouched();
-    this.testForm.updateValueAndValidity();
+      is_correct:  [false]
+    }));
   }
 
-  removeQuestion(questionIndex: number): void {
-    this.questions.removeAt(questionIndex);
-    // Nettoyer l'image associée
-    this.questionImages.delete(questionIndex);
-
-    // Réorganiser les index des images restantes
-    const updatedImages = new Map();
-    this.questionImages.forEach((value, key) => {
-      if (key > questionIndex) {
-        updatedImages.set(key - 1, value);
-      } else {
-        updatedImages.set(key, value);
-      }
-    });
-    this.questionImages = updatedImages;
+  removeChoice(eIdx: number, qIdx: number, cIdx: number): void {
+    this.getChoices(eIdx, qIdx).removeAt(cIdx);
   }
 
-  removeChoice(questionIndex: number, choiceIndex: number): void {
-    const choices = this.getChoices(questionIndex);
-    choices.removeAt(choiceIndex);
+  // ── Images exercice ─────────────────────────────────────────
+
+  onExerciceImageChange(event: any, eIdx: number): void {
+    const file: File = event.target.files[0];
+    if (!file || !this._validateImage(file)) return;
+    const reader = new FileReader();
+    reader.onload = (e: any) => this.exerciceImages.set(eIdx, { file, preview: e.target.result });
+    reader.readAsDataURL(file);
+    this.exercices.at(eIdx).patchValue({ image: file });
   }
 
-  // Gestion de l'upload d'image pour une question
-  onQuestionImageChange(event: any, questionIndex: number): void {
-    const file = event.target.files[0];
-    if (file) {
-      // Vérifier la taille du fichier (max 2MB)
-      if (file.size > 2 * 1024 * 1024) {
-        this.toastService.error('L\'image ne doit pas dépasser 2MB');
-        return;
-      }
+  getExerciceImagePreview(eIdx: number): string | null {
+    const d = this.exerciceImages.get(eIdx);
+    return d?.preview || d?.existingUrl || null;
+  }
 
-      // Vérifier le type de fichier
-      if (!['image/jpeg', 'image/png', 'image/jpg'].includes(file.type)) {
-        this.toastService.error('Seuls les fichiers JPG et PNG sont acceptés');
-        return;
-      }
+  removeExerciceImage(eIdx: number): void {
+    this.exerciceImages.delete(eIdx);
+    this.exercices.at(eIdx).patchValue({ image: null });
+  }
 
-      // Créer une prévisualisation
-      const reader = new FileReader();
-      reader.onload = (e: any) => {
-        this.questionImages.set(questionIndex, {
-          file: file,
-          preview: e.target.result
-        });
-      };
-      reader.readAsDataURL(file);
+  // ── Images question ─────────────────────────────────────────
 
-      // Mettre à jour le FormControl
-      this.questions.at(questionIndex).patchValue({ image: file });
+  onQuestionImageChange(event: any, eIdx: number, qIdx: number): void {
+    const file: File = event.target.files[0];
+    if (!file || !this._validateImage(file)) return;
+    const key = `${eIdx}_${qIdx}`;
+    const reader = new FileReader();
+    reader.onload = (e: any) => this.questionImages.set(key, { file, preview: e.target.result });
+    reader.readAsDataURL(file);
+    this.getQuestions(eIdx).at(qIdx).patchValue({ image: file });
+  }
+
+  getQuestionImagePreview(eIdx: number, qIdx: number): string | null {
+    const d = this.questionImages.get(`${eIdx}_${qIdx}`);
+    return d?.preview || d?.existingUrl || null;
+  }
+
+  removeQuestionImage(eIdx: number, qIdx: number): void {
+    this.questionImages.delete(`${eIdx}_${qIdx}`);
+    this.getQuestions(eIdx).at(qIdx).patchValue({ image: null });
+  }
+
+  private _validateImage(file: File): boolean {
+    if (file.size > 4 * 1024 * 1024) { this.toastService.error('Image max 4 Mo'); return false; }
+    if (!['image/jpeg', 'image/png', 'image/jpg', 'image/webp'].includes(file.type)) {
+      this.toastService.error('JPG, PNG ou WebP uniquement'); return false;
     }
+    return true;
   }
 
-  // Obtenir la prévisualisation de l'image d'une question
-  getQuestionImagePreview(questionIndex: number): string | null {
-    const imageData = this.questionImages.get(questionIndex);
-    return imageData?.preview || imageData?.existingUrl || null;
-  }
-
-  // Supprimer l'image d'une question
-  removeQuestionImage(questionIndex: number): void {
-    this.questionImages.delete(questionIndex);
-    this.questions.at(questionIndex).patchValue({ image: null });
-  }
+  // ────────────────────────────────────────────────────────────
+  // CHARGEMENT
+  // ────────────────────────────────────────────────────────────
 
   loadCategories(): void {
     this.isLoading = true;
-    this.categorieService.getData<ResponseData<CategorieTest[]>>('categories-test').subscribe({
-      next: (data: ResponseData<CategorieTest[]>) => {
-        this.categories.set(data.data);
-        this.isLoading = false;
-      },
-      error: (err: any) => {
-        console.error(err);
-        this.isLoading = false;
-        this.toastService.error('Erreur lors du chargement des catégories');
-      }
+    this.testService.getData<ResponseData<CategorieTest[]>>('categories-test').subscribe({
+      next: (data) => { this.categories.set(data.data); this.isLoading = false; },
+      error: (err) => { console.error(err); this.isLoading = false; this.toastService.error('Erreur chargement'); }
     });
   }
 
-  addCategory(): void {
-    if (this.categoryForm.valid) {
-      this.isLoading = true;
-      const newCategory: CategorieTest = { id: '', libelle: this.categoryForm.value.libelle };
+  // ────────────────────────────────────────────────────────────
+  // CRUD CATÉGORIE
+  // ────────────────────────────────────────────────────────────
 
-      this.categorieService.postData<CategorieTest, ResponseData<CategorieTest>>('categories-test', newCategory).subscribe({
-        next: (data: ResponseData<CategorieTest>) => {
-          this.categories.update(categories => [...categories, data.data]);
-          this.categoryForm.reset();
-          this.isLoading = false;
-          this.toastService.success('Catégorie ajoutée avec succès');
-        },
-        error: (err: any) => {
-          console.error(err);
-          this.isLoading = false;
-          this.toastService.error('Erreur lors de l\'ajout de la catégorie');
-        }
-      });
-    }
+  addCategory(): void {
+    if (!this.categoryForm.valid) return;
+    this.isLoading = true;
+    const payload: CategorieTest = { id: '', libelle: this.categoryForm.value.libelle };
+    this.testService.postData<CategorieTest, ResponseData<CategorieTest>>('categories-test', payload).subscribe({
+      next: (data) => { this.categories.update(c => [...c, data.data]); this.categoryForm.reset(); this.isLoading = false; this.toastService.success('Catégorie ajoutée'); },
+      error: (err) => { console.error(err); this.isLoading = false; this.toastService.error('Erreur ajout'); }
+    });
   }
 
   openEditModal(category: CategorieTest): void {
     this.categoryToEdit = { ...category };
-    this.editForm.patchValue({
-      id: category.id,
-      libelle: category.libelle
-    });
+    this.editForm.patchValue({ id: category.id, libelle: category.libelle });
     this.showEditModal = true;
   }
 
   closeEditModal(): void {
     this.modalClosing = true;
-    setTimeout(() => {
-      this.showEditModal = false;
-      this.modalClosing = false;
-      this.categoryToEdit = null;
-      this.editForm.reset();
-    }, 200);
+    setTimeout(() => { this.showEditModal = false; this.modalClosing = false; this.categoryToEdit = null; this.editForm.reset(); }, 200);
   }
 
   saveCategory(): void {
-    if (this.editForm.valid && this.categoryToEdit) {
-      const updatedCategory: CategorieTest = {
-        id: this.editForm.value.id,
-        libelle: this.editForm.value.libelle
-      };
-
-      this.categorieService.putData<CategorieTest, ResponseData<CategorieTest>>(`categories-test/${updatedCategory.id}`, updatedCategory).subscribe({
-        next: (data: ResponseData<CategorieTest>) => {
-          this.categories.update(categories =>
-            categories.map(c => c.id === updatedCategory.id ? data.data : c)
-          );
-          this.closeEditModal();
-          this.toastService.success('Catégorie mise à jour avec succès');
-        },
-        error: (err: any) => {
-          console.error(err);
-          this.toastService.error('Erreur lors de la mise à jour de la catégorie');
-        }
-      });
-    }
+    if (!this.editForm.valid || !this.categoryToEdit) return;
+    const updated: CategorieTest = { id: this.editForm.value.id, libelle: this.editForm.value.libelle };
+    this.testService.putData<CategorieTest, ResponseData<CategorieTest>>(`categories-test/${updated.id}`, updated).subscribe({
+      next: (data) => { this.categories.update(cats => cats.map(c => c.id === updated.id ? data.data : c)); this.closeEditModal(); this.toastService.success('Mise à jour réussie'); },
+      error: (err) => { console.error(err); this.toastService.error('Erreur mise à jour'); }
+    });
   }
 
-  openDeleteModal(category: CategorieTest): void {
-    this.categoryToDelete = category;
-    this.showDeleteModal = true;
-  }
+  openDeleteModal(category: CategorieTest): void { this.categoryToDelete = category; this.showDeleteModal = true; }
 
   closeDeleteModal(): void {
     this.modalClosing = true;
-    setTimeout(() => {
-      this.showDeleteModal = false;
-      this.modalClosing = false;
-      this.categoryToDelete = null;
-    }, 200);
+    setTimeout(() => { this.showDeleteModal = false; this.modalClosing = false; this.categoryToDelete = null; }, 200);
   }
 
   confirmDelete(): void {
-    if (this.categoryToDelete) {
-      this.isDeleting = true;
-
-      this.categorieService.deleteData<string, ResponseData<CategorieTest>>(`categories-test`, this.categoryToDelete.id).subscribe({
-        next: () => {
-          this.categories.update(categories =>
-            categories.filter(c => c.id !== this.categoryToDelete?.id)
-          );
-          this.isDeleting = false;
-          this.closeDeleteModal();
-          this.toastService.success('Catégorie supprimée avec succès');
-        },
-        error: (err: any) => {
-          console.error(err);
-          this.isDeleting = false;
-          this.toastService.error('Erreur lors de la suppression de la catégorie');
-        }
-      });
-    }
+    if (!this.categoryToDelete) return;
+    this.isDeleting = true;
+    this.testService.deleteData<string, ResponseData<CategorieTest>>('categories-test', this.categoryToDelete.id).subscribe({
+      next: () => { this.categories.update(cats => cats.filter(c => c.id !== this.categoryToDelete?.id)); this.isDeleting = false; this.closeDeleteModal(); this.toastService.success('Catégorie supprimée'); },
+      error: (err) => { console.error(err); this.isDeleting = false; this.toastService.error('Erreur suppression'); }
+    });
   }
+
+  // ────────────────────────────────────────────────────────────
+  // GESTION TESTS
+  // ────────────────────────────────────────────────────────────
 
   openManageTestsModal(category: CategorieTest): void {
     this.selectedCategory = category;
-    this.showManageTestsModal = true;
-    console.log(category);
-    if (category.tests) {
-      this.tests.set(category.tests);
-    }
+    this.showManageTestModal = true;
+    if ((category as any).tests) this.tests.set((category as any).tests);
+    else if ((category as any).test) this.tests.set((category as any).test);
+  }
+
+  closeManageTestModal(): void {
+    this.showManageTestModal = false;
+    this.selectedCategory = null;
+    this.resetTestForm();
+    this.isEditingTest = false;
+    this.testToEdit = null;
   }
 
   openEditTestModal(test: any): void {
@@ -309,201 +290,156 @@ export class TestComponent implements OnInit {
     this.testToEdit = test;
     this.isSubmitting = true;
 
-    this.categorieService.getData<ResponseData<Test>>(`tests/${test.id}`).subscribe({
+    this.testService.getData<ResponseData<Test>>(`tests/${test.id}`).subscribe({
       next: (response) => {
         this.isSubmitting = false;
-        const testDetails = response.data;
+        const details: any = response.data;
 
-        this.testForm = this.fb.group({
-          libelle: [testDetails.libelle, Validators.required],
-          questions: this.fb.array([])
-        });
-
-        // Nettoyer les images précédentes
+        this.testForm = this._buildTestForm();
+        this.exerciceImages.clear();
         this.questionImages.clear();
+        this.testForm.patchValue({ libelle: details.libelle });
 
-        testDetails.questions.forEach((question: any, index: number) => {
-          const questionGroup = this.fb.group({
-            id: [question.id],
-            question: [question.question, Validators.required],
-            image: [question.image],
-            choices: this.fb.array([])
+        (details.exercices || []).forEach((exercice: any, eIdx: number) => {
+          const eGroup = this.fb.group({
+            id:        [exercice.id],
+            libelle:   [exercice.libelle, Validators.required],
+            image:     [exercice.image],
+            ordre:     [exercice.ordre],
+            questions: this.fb.array([])
           });
+          if (exercice.image) this.exerciceImages.set(eIdx, { file: null, preview: null, existingUrl: exercice.image });
+          (this.testForm.get('exercices') as FormArray).push(eGroup);
 
-          // Si une image existe déjà, la stocker pour l'affichage
-          if (question.image) {
-            this.questionImages.set(index, {
-              file: null,
-              preview: null,
-              existingUrl: question.image
+          (exercice.questions || []).forEach((question: any, qIdx: number) => {
+            const qGroup = this.fb.group({
+              id:       [question.id],
+              question: [question.question, Validators.required],
+              image:    [question.image],
+              ordre:    [question.ordre],
+              choices:  this.fb.array([])
             });
-          }
+            if (question.image) this.questionImages.set(`${eIdx}_${qIdx}`, { file: null, preview: null, existingUrl: question.image });
+            (eGroup.get('questions') as FormArray).push(qGroup);
 
-          const choicesArray = questionGroup.get('choices') as FormArray;
-          question.choices.forEach((choice: any) => {
-            choicesArray.push(this.fb.group({
-              id: [choice.id],
-              choice_test: [choice.choice_test, Validators.required],
-              is_correct: [choice.is_correct]
-            }));
+            (question.choices || []).forEach((choice: any) => {
+              (qGroup.get('choices') as FormArray).push(this.fb.group({
+                id:          [choice.id],
+                choice_test: [choice.choice_test, Validators.required],
+                is_correct:  [choice.is_correct]
+              }));
+            });
           });
-
-          (this.testForm.get('questions') as FormArray).push(questionGroup);
         });
 
         this.activeTab = 'form';
       },
-      error: (err) => {
-        this.isSubmitting = false;
-        console.error(err);
-        this.toastService.error('Erreur lors du chargement des détails du test');
-      }
+      error: (err) => { this.isSubmitting = false; console.error(err); this.toastService.error('Erreur chargement du test'); }
     });
   }
 
-  viewTest(test: any): void {
-    this.selectedTest = test;
-    this.showViewTestModal = true;
-  }
-
-  closeViewTestModal(): void {
-    this.showViewTestModal = false;
-    this.selectedTest = null;
-  }
-
-  cancelEdit(): void {
-    this.isEditingTest = false;
-    this.testToEdit = null;
-    this.resetTestForm();
-  }
-
-  closeManageTestsModal(): void {
-    this.showManageTestsModal = false;
-    this.selectedCategory = null;
-    this.resetTestForm();
-    this.isEditingTest = false;
-    this.testToEdit = null;
-  }
+  cancelEdit(): void { this.isEditingTest = false; this.testToEdit = null; this.resetTestForm(); }
 
   resetTestForm(): void {
-    this.testForm.reset({
-      libelle: ''
-    });
-
-    while (this.questions.length !== 0) {
-      this.questions.removeAt(0);
-    }
-
-    // Nettoyer les images
+    this.testForm = this._buildTestForm();
+    this.exerciceImages.clear();
     this.questionImages.clear();
   }
 
-  onFileChange(event: any): void {
-    const file = event.target.files[0];
-    if (file) {
-      this.selectedFile = file;
+  // ── Sauvegarde ──────────────────────────────────────────────
+
+  saveTest(): void {
+    if (!this.testForm.valid || !this.selectedCategory) return;
+
+    const fd = new FormData();
+    fd.append('libelle', this.testForm.value.libelle);
+    fd.append('categorie_test_id', this.selectedCategory.id);
+
+    this.testForm.value.exercices.forEach((exercice: any, eIdx: number) => {
+      if (exercice.id) fd.append(`exercices[${eIdx}][id]`, exercice.id);
+      fd.append(`exercices[${eIdx}][libelle]`, exercice.libelle);
+      fd.append(`exercices[${eIdx}][ordre]`, String(eIdx + 1));
+
+      const eImg = this.exerciceImages.get(eIdx);
+      if (eImg?.file)         fd.append(`exercices[${eIdx}][image]`, eImg.file);
+      else if (eImg?.existingUrl) fd.append(`exercices[${eIdx}][existing_image]`, eImg.existingUrl);
+
+      exercice.questions.forEach((question: any, qIdx: number) => {
+        if (question.id) fd.append(`exercices[${eIdx}][questions][${qIdx}][id]`, question.id);
+        fd.append(`exercices[${eIdx}][questions][${qIdx}][question]`, question.question);
+        fd.append(`exercices[${eIdx}][questions][${qIdx}][ordre]`, String(qIdx + 1));
+
+        const qImg = this.questionImages.get(`${eIdx}_${qIdx}`);
+        if (qImg?.file)          fd.append(`exercices[${eIdx}][questions][${qIdx}][image]`, qImg.file);
+        else if (qImg?.existingUrl) fd.append(`exercices[${eIdx}][questions][${qIdx}][existing_image]`, qImg.existingUrl);
+
+        question.choices.forEach((choice: any, cIdx: number) => {
+          if (choice.id) fd.append(`exercices[${eIdx}][questions][${qIdx}][choices][${cIdx}][id]`, choice.id);
+          fd.append(`exercices[${eIdx}][questions][${qIdx}][choices][${cIdx}][choice_test]`, choice.choice_test);
+          fd.append(`exercices[${eIdx}][questions][${qIdx}][choices][${cIdx}][is_correct]`,  choice.is_correct ? '1' : '0');
+        });
+      });
+    });
+
+    this.isSubmitting = true;
+
+    if (this.isEditingTest && this.testToEdit) {
+      this.testService.postData<FormData, ResponseData<Test>>(`tests/${this.testToEdit.id}`, fd).subscribe({
+        next: (data) => {
+          this.toastService.success(data.message);
+          this.isSubmitting = false;
+          this._updateTestInList(data.data);
+          this.cancelEdit();
+        },
+        error: (err) => { console.error(err); this.toastService.error('Erreur mise à jour'); this.isSubmitting = false; }
+      });
+    } else {
+      this.testService.postData<FormData, ResponseData<Test>>('tests', fd).subscribe({
+        next: (data) => {
+          this.toastService.success(data.message);
+          this.isSubmitting = false;
+          const cat = this.selectedCategory as any;
+          if (cat?.tests) { cat.tests.push(data.data); this.tests.set(cat.tests); }
+          else if (cat?.test) { cat.test.push(data.data); this.tests.set(cat.test); }
+          this.resetTestForm();
+        },
+        error: (err) => { console.error(err); this.toastService.error('Erreur création'); this.isSubmitting = false; }
+      });
     }
   }
 
-  saveTest(): void {
-    if (this.testForm.valid && this.selectedCategory) {
-      const formData = new FormData();
-      formData.append('libelle', this.testForm.value.libelle);
-      formData.append('categorie_test_id', this.selectedCategory.id);
-
-      this.testForm.value.questions.forEach((question: any, index: number) => {
-        if (question.id) {
-          formData.append(`questions[${index}][id]`, question.id);
-        }
-
-        formData.append(`questions[${index}][question]`, question.question);
-
-        // Gestion de l'image de la question
-        const imageData = this.questionImages.get(index);
-        if (imageData?.file) {
-          // Nouvelle image uploadée
-          formData.append(`questions[${index}][image]`, imageData.file);
-        } else if (imageData?.existingUrl && !imageData.file) {
-          // Image existante (en mode édition)
-          formData.append(`questions[${index}][existing_image]`, imageData.existingUrl);
-        }
-
-        question.choices.forEach((choice: any, choiceIndex: number) => {
-          if (choice.id) {
-            formData.append(`questions[${index}][choices][${choiceIndex}][id]`, choice.id);
-          }
-
-          formData.append(`questions[${index}][choices][${choiceIndex}][choice_test]`, choice.choice_test);
-          formData.append(`questions[${index}][choices][${choiceIndex}][is_correct]`, choice.is_correct ? '1' : '0');
-        });
-      });
-
-      if (this.isEditingTest && this.testToEdit) {
-        this.isSubmitting = true;
-        this.categorieService.postData<FormData, ResponseData<any>>(`tests/${this.testToEdit.id}`, formData).subscribe({
-          next: (data: ResponseData<any>) => {
-            this.toastService.success('Test mis à jour avec succès');
-            this.isSubmitting = false;
-            if (this.selectedCategory?.tests) {
-              const index = this.selectedCategory.tests.findIndex(c => c.id === this.testToEdit?.id);
-              if (index !== -1) {
-                this.selectedCategory.tests[index] = data.data;
-              }
-            }
-            this.cancelEdit();
-          },
-          error: (err: any) => {
-            console.error(err);
-            this.toastService.error('Erreur lors de la mise à jour du test');
-            this.isSubmitting = false;
-          }
-        });
-      } else {
-        this.isSubmitting = true;
-        this.categorieService.postData<FormData, ResponseData<any>>('tests', formData).subscribe({
-          next: (data: ResponseData<any>) => {
-            this.toastService.success('Test ajouté avec succès');
-            this.isSubmitting = false;
-            if (this.selectedCategory?.tests) {
-              this.selectedCategory.tests.push(data.data);
-              this.tests.set(this.selectedCategory.tests);
-            }
-            this.resetTestForm();
-          },
-          error: (err: any) => {
-            console.error(err);
-            this.toastService.error(err.message);
-            this.isSubmitting = false;
-          }
-        });
-      }
-    }
+  private _updateTestInList(updated: any): void {
+    const cat = this.selectedCategory as any;
+    const list: any[] = cat?.tests || cat?.test || [];
+    const idx = list.findIndex((t: any) => t.id === this.testToEdit?.id);
+    if (idx !== -1) { list[idx] = updated; this.tests.set([...list]); }
   }
 
   deleteTest(test: any): void {
-    this.alertService.showConfirmation("Suppression", "Êtes-vous sûr de vouloir supprimer ce test ?").then((result) => {
-      if (result.isConfirmed) {
-        this.isSubmitting = true;
-        this.categorieService.deleteData<string, ResponseData<any>>(`tests`, test.id).subscribe({
-          next: () => {
-            this.toastService.success('Test supprimé avec succès');
-            this.isSubmitting = false;
-            if (this.selectedCategory?.tests) {
-              this.selectedCategory.tests = this.supprimerParId(this.selectedCategory.tests, test.id);
-              this.tests.set(this.selectedCategory.tests || []);
-            }
-          },
-          error: (err: any) => {
-            console.error(err);
-            this.toastService.error('Erreur lors de la suppression du test');
-            this.isSubmitting = false;
-          }
-        });
-      }
+    this.alertService.showConfirmation('Suppression', 'Êtes-vous sûr de vouloir supprimer ce test ?').then((result) => {
+      if (!result.isConfirmed) return;
+      this.isSubmitting = true;
+      this.testService.deleteData<string, ResponseData<Test>>('tests', test.id).subscribe({
+        next: () => {
+          this.toastService.success('Test supprimé');
+          this.isSubmitting = false;
+          this.tests.update(ts => ts.filter((t: any) => t.id !== test.id));
+        },
+        error: (err) => { console.error(err); this.toastService.error('Erreur suppression'); this.isSubmitting = false; }
+      });
     });
   }
 
-  supprimerParId(tableau: any, id: string) {
-    return tableau.filter((objet: { id: string; }) => objet.id !== id);
+  // ── Modal visualisation ─────────────────────────────────────
+
+  viewTest(test: any): void { this.selectedTest = test; this.showViewTestModal = true; }
+  closeViewTestModal(): void { this.showViewTestModal = false; this.selectedTest = null; }
+
+  // ── Utilitaires ─────────────────────────────────────────────
+
+  getExercices(test: any): any[]   { return test?.exercices || []; }
+  getExercicesCount(test: any): number { return test?.exercices?.length || 0; }
+  totalQuestions(test: any): number {
+    return (test?.exercices || []).reduce((acc: number, ex: any) => acc + (ex.questions?.length || 0), 0);
   }
 }
