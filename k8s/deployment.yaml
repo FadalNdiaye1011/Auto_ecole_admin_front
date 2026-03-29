@@ -17,7 +17,7 @@ spec:
     spec:
       containers:
         - name: autoecole
-          image: fadal1011/autoecole:20260329-133845-0374b2c
+          image: fadal1011/autoecole:20260329-133957-67b15a6
           imagePullPolicy: Always  # Important pour toujours tirer la dernière image
           ports:
             - containerPort: 4200
