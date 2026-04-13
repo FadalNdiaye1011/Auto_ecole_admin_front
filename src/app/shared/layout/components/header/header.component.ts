@@ -1,8 +1,10 @@
-import { Component, EventEmitter, HostListener, Output } from '@angular/core';
+import { Component, EventEmitter, HostListener, OnDestroy, OnInit, Output } from '@angular/core';
 import { NavigationEnd, Router } from '@angular/router';
-import { filter, finalize } from 'rxjs';
+import { filter, finalize, Subscription } from 'rxjs';
 import { AlertService } from '../../../../core/services/Alert/alert.service';
 import { AuthService } from '../../../../feature/auth/services/auth.service';
+import { SessionService } from '../../../../core/services/session.service';
+import { ToastService } from '../../../../core/services/toast.service';
 
 @Component({
   selector: 'app-header',
@@ -10,34 +12,63 @@ import { AuthService } from '../../../../feature/auth/services/auth.service';
   templateUrl: './header.component.html',
   styleUrl: './header.component.css'
 })
-export class HeaderComponent {
+export class HeaderComponent implements OnInit, OnDestroy {
   @Output() menuToggled = new EventEmitter<void>();
 
   currentPageTitle = 'Dashboard';
-  userName = 'Jean Dupont';
-  userInitials = 'JD';
+  userName = '';
+  userInitials = '';
   unreadNotifications = 3;
   profileMenuOpen = false;
   pageProgress = 0;
-  isLoading: boolean = false;
+  isLoading = false;
+  isRefreshing = false;
 
-  constructor(private router: Router,private alertService:AlertService,private authservice:AuthService) { }
+  private sub!: Subscription;
+
+  constructor(
+    private router: Router,
+    private alertService: AlertService,
+    private authservice: AuthService,
+    private sessionService: SessionService,
+    private toastService: ToastService
+  ) {}
 
   ngOnInit(): void {
-    // Surveiller les changements de route pour mettre à jour le titre
+    this.sub = this.authservice.user$.subscribe(user => this.updateUserDisplay(user));
+
     this.router.events.pipe(
       filter(event => event instanceof NavigationEnd)
     ).subscribe((event: any) => {
-      // Extraire le nom de la page à partir de l'URL
       const urlSegments = event.url.split('/');
       if (urlSegments.length > 1) {
-        const pageName = urlSegments[1];
-        this.setPageTitle(pageName);
+        this.setPageTitle(urlSegments[1]);
       }
     });
 
-    // Animation initiale de la barre de progression
     this.animateProgressBar();
+  }
+
+  ngOnDestroy(): void {
+    this.sub?.unsubscribe();
+  }
+
+  private updateUserDisplay(user: any): void {
+    if (!user) return;
+    const nom = user.nom ?? '';
+    const prenom = user.prenom ?? '';
+    this.userName = [prenom, nom].filter(Boolean).join(' ') || user.email || '';
+    this.userInitials = ((prenom[0] ?? '') + (nom[0] ?? '')).toUpperCase() || 'U';
+  }
+
+  refreshPermissions(): void {
+    this.isRefreshing = true;
+    this.authservice.refreshMe().pipe(
+      finalize(() => this.isRefreshing = false)
+    ).subscribe({
+      next: () => this.toastService.success('Permissions mises à jour'),
+      error: () => {}   // 401 handled by interceptor (redirect to login)
+    });
   }
 
   // Fermer le menu profil quand on clique en dehors
@@ -99,8 +130,9 @@ export class HeaderComponent {
         ).subscribe({
           next: (response: any) => {
             if (response.status) {
-              localStorage.clear();
-              this.router.navigate(['/auth/login'])
+              this.sessionService.cancel();
+              this.authservice.clearSession();
+              this.router.navigate(['/auth/login']);
             } else {
               this.alertService.showAlert({
                 title: "Erreur",

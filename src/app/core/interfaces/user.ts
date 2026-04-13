@@ -6,6 +6,8 @@ export interface User {
   numero: string
   provider: string
   provider_id: string
+  is_admin: boolean
+  permissions: string[]  // ex: ['cours.view', 'cours.create']
   created_at: string
   updated_at: string
 }

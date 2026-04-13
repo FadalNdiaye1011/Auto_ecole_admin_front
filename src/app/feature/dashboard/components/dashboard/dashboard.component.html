@@ -1,1 +1,498 @@
-<p>dashboard works!</p>
+<div class="min-h-screen bg-gray-50">
+  <div class="p-4 md:p-6 space-y-5">
+
+    <!-- ── Header ─────────────────────────────────────────────────────── -->
+    <div class="flex items-center justify-between">
+      <div>
+        <h1 class="text-xl font-bold text-gray-900">Tableau de bord</h1>
+        <p class="text-sm text-gray-500 mt-0.5">Vue d'ensemble de votre auto-école</p>
+      </div>
+      <button
+        (click)="loadDashboard()"
+        [disabled]="isLoading"
+        class="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-lg text-sm text-gray-600 hover:bg-gray-50 transition disabled:opacity-50 shadow-sm">
+        <svg [class.animate-spin]="isLoading" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+            d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+        </svg>
+        Actualiser
+      </button>
+    </div>
+
+    <!-- ── Loading skeleton ────────────────────────────────────────────── -->
+    <ng-container *ngIf="isLoading">
+      <div class="animate-pulse grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div *ngFor="let i of [1,2,3,4]" class="h-28 bg-gray-200 rounded-xl"></div>
+      </div>
+      <div class="animate-pulse grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div *ngFor="let i of [1,2,3,4]" class="h-20 bg-gray-200 rounded-xl"></div>
+      </div>
+      <div class="animate-pulse grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <div class="lg:col-span-2 h-72 bg-gray-200 rounded-xl"></div>
+        <div class="h-72 bg-gray-200 rounded-xl"></div>
+      </div>
+      <div class="animate-pulse grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <div class="lg:col-span-2 h-72 bg-gray-200 rounded-xl"></div>
+        <div class="h-72 bg-gray-200 rounded-xl"></div>
+      </div>
+    </ng-container>
+
+    <!-- ── Dashboard content ───────────────────────────────────────────── -->
+    <ng-container *ngIf="!isLoading && data">
+
+      <!-- ── Section 1: KPIs principaux ─────────────────────────────── -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+
+        <!-- Utilisateurs -->
+        <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
+          <div class="flex items-start gap-4">
+            <div class="rounded-lg p-2.5 bg-blue-50 shrink-0">
+              <svg class="w-5 h-5 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+              </svg>
+            </div>
+            <div class="min-w-0">
+              <p class="text-xs text-gray-500 font-medium uppercase tracking-wide">Utilisateurs</p>
+              <p class="text-2xl font-bold text-gray-900 mt-0.5">{{ d.kpis.total_utilisateurs | number }}</p>
+              <p class="text-xs text-gray-400 mt-1">+{{ d.kpis.nouveaux_utilisateurs_mois }} ce mois</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Revenus -->
+        <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
+          <div class="flex items-start gap-4">
+            <div class="rounded-lg p-2.5 bg-emerald-50 shrink-0">
+              <svg class="w-5 h-5 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+            <div class="min-w-0">
+              <p class="text-xs text-gray-500 font-medium uppercase tracking-wide">Revenus total</p>
+              <p class="text-2xl font-bold text-gray-900 mt-0.5">{{ formatShort(d.kpis.revenus_total) }} <span class="text-sm font-normal text-gray-400">FCFA</span></p>
+              <p class="text-xs text-gray-400 mt-1">Ce mois : {{ formatCurrency(d.kpis.revenus_mois) }}</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Cours vendus -->
+        <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
+          <div class="flex items-start gap-4">
+            <div class="rounded-lg p-2.5 bg-indigo-50 shrink-0">
+              <svg class="w-5 h-5 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+              </svg>
+            </div>
+            <div class="min-w-0">
+              <p class="text-xs text-gray-500 font-medium uppercase tracking-wide">Cours vendus</p>
+              <p class="text-2xl font-bold text-gray-900 mt-0.5">{{ d.kpis.total_cours_vendus | number }}</p>
+              <p class="text-xs text-gray-400 mt-1">+{{ d.kpis.cours_vendus_mois }} ce mois · {{ formatCurrency(d.kpis.revenus_cours) }}</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Examens achetés -->
+        <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
+          <div class="flex items-start gap-4">
+            <div class="rounded-lg p-2.5 bg-violet-50 shrink-0">
+              <svg class="w-5 h-5 text-violet-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+              </svg>
+            </div>
+            <div class="min-w-0">
+              <p class="text-xs text-gray-500 font-medium uppercase tracking-wide">Examens achetés</p>
+              <p class="text-2xl font-bold text-gray-900 mt-0.5">{{ d.kpis.total_examens_achetes | number }}</p>
+              <p class="text-xs text-gray-400 mt-1">+{{ d.kpis.examens_achetes_mois }} ce mois · {{ formatCurrency(d.kpis.revenus_examens) }}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── KPIs secondaires ──────────────────────────────────────────── -->
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+
+        <!-- Tentatives tests -->
+        <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
+          <p class="text-xs text-gray-500 font-medium">Tentatives tests</p>
+          <p class="text-xl font-bold text-gray-900 mt-1">{{ d.kpis.total_tentatives_tests | number }}</p>
+          <p class="text-xs text-amber-500 mt-1">+{{ d.kpis.tentatives_tests_mois }} ce mois</p>
+        </div>
+
+        <!-- Tentatives examens -->
+        <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
+          <p class="text-xs text-gray-500 font-medium">Tentatives examens</p>
+          <p class="text-xl font-bold text-gray-900 mt-1">{{ d.kpis.total_tentatives_examens | number }}</p>
+          <p class="text-xs text-indigo-500 mt-1">+{{ d.kpis.tentatives_examens_mois }} ce mois</p>
+        </div>
+
+        <!-- Nouveaux inscrits -->
+        <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
+          <p class="text-xs text-gray-500 font-medium">Nouveaux inscrits</p>
+          <p class="text-xl font-bold text-gray-900 mt-1">{{ d.kpis.nouveaux_utilisateurs_mois | number }}</p>
+          <p class="text-xs text-green-500 mt-1">{{ d.kpis.nouveaux_utilisateurs_semaine }} cette semaine</p>
+        </div>
+
+        <!-- Catalogue -->
+        <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
+          <p class="text-xs text-gray-500 font-medium">Catalogue</p>
+          <p class="text-xl font-bold text-gray-900 mt-1">{{ d.kpis.total_cours + d.kpis.total_examens }} <span class="text-sm font-normal text-gray-400">items</span></p>
+          <p class="text-xs text-gray-400 mt-1">{{ d.kpis.total_cours }} cours · {{ d.kpis.total_examens }} examens</p>
+        </div>
+      </div>
+
+      <!-- ── Section 2: Graphiques ─────────────────────────────────────── -->
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+
+        <!-- Revenus mensuels (2/3) -->
+        <div class="lg:col-span-2 bg-white rounded-xl border border-gray-100 shadow-sm p-5">
+          <div class="flex items-center justify-between mb-4">
+            <div>
+              <h2 class="text-base font-semibold text-gray-900">Revenus mensuels</h2>
+              <p class="text-xs text-gray-400 mt-0.5">12 derniers mois</p>
+            </div>
+          </div>
+          <div class="h-64">
+            <canvas id="revenusChart"></canvas>
+          </div>
+        </div>
+
+        <!-- Ventes par catégorie (1/3) -->
+        <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-5 flex flex-col gap-4">
+          <h2 class="text-base font-semibold text-gray-900">Ventes par catégorie</h2>
+
+          <!-- Cours doughnut -->
+          <div>
+            <p class="text-xs text-gray-500 font-medium mb-2">Cours</p>
+            <div class="h-36">
+              <canvas id="coursCategChart"></canvas>
+            </div>
+          </div>
+
+          <!-- Examens doughnut -->
+          <div>
+            <p class="text-xs text-gray-500 font-medium mb-2">Examens</p>
+            <div class="h-36">
+              <canvas id="examenCategChart"></canvas>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── Section 3: Classements ────────────────────────────────────── -->
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+
+        <!-- Top cours / examens (2/3) -->
+        <div class="lg:col-span-2 bg-white rounded-xl border border-gray-100 shadow-sm">
+          <!-- Tabs -->
+          <div class="flex border-b border-gray-100 px-4 pt-4">
+            <button
+              (click)="activeTopTab = 'cours'"
+              [class.border-blue-500]="activeTopTab === 'cours'"
+              [class.text-blue-600]="activeTopTab === 'cours'"
+              [class.border-transparent]="activeTopTab !== 'cours'"
+              [class.text-gray-500]="activeTopTab !== 'cours'"
+              class="pb-3 px-2 mr-4 text-sm font-medium border-b-2 transition">
+              Top Cours
+            </button>
+            <button
+              (click)="activeTopTab = 'examens'"
+              [class.border-blue-500]="activeTopTab === 'examens'"
+              [class.text-blue-600]="activeTopTab === 'examens'"
+              [class.border-transparent]="activeTopTab !== 'examens'"
+              [class.text-gray-500]="activeTopTab !== 'examens'"
+              class="pb-3 px-2 text-sm font-medium border-b-2 transition">
+              Top Examens
+            </button>
+          </div>
+
+          <!-- Top Cours table -->
+          <div *ngIf="activeTopTab === 'cours'" class="overflow-x-auto">
+            <table class="w-full text-sm">
+              <thead>
+                <tr class="text-xs text-gray-500 border-b border-gray-50">
+                  <th class="text-left py-2.5 px-4 font-medium">#</th>
+                  <th class="text-left py-2.5 px-4 font-medium">Cours</th>
+                  <th class="text-left py-2.5 px-4 font-medium">Catégorie</th>
+                  <th class="text-right py-2.5 px-4 font-medium">Ventes</th>
+                  <th class="text-right py-2.5 px-4 font-medium">Revenus</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let item of d.top_cours; let i = index"
+                    class="border-b border-gray-50 hover:bg-gray-50 transition">
+                  <td class="py-3 px-4 text-gray-400 font-medium">{{ i + 1 }}</td>
+                  <td class="py-3 px-4">
+                    <p class="font-medium text-gray-800 truncate max-w-[220px]">{{ item.libelle }}</p>
+                    <p class="text-xs text-gray-400">{{ formatCurrency(item.prix) }}</p>
+                  </td>
+                  <td class="py-3 px-4">
+                    <span class="inline-block text-xs bg-blue-50 text-blue-700 rounded-full px-2 py-0.5">{{ item.categorie }}</span>
+                  </td>
+                  <td class="py-3 px-4 text-right font-semibold text-gray-800">{{ item.total_ventes }}</td>
+                  <td class="py-3 px-4 text-right text-gray-600">{{ formatCurrency(item.revenus_generes) }}</td>
+                </tr>
+                <tr *ngIf="d.top_cours.length === 0">
+                  <td colspan="5" class="py-8 text-center text-gray-400 text-sm">Aucun cours</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Top Examens table -->
+          <div *ngIf="activeTopTab === 'examens'" class="overflow-x-auto">
+            <table class="w-full text-sm">
+              <thead>
+                <tr class="text-xs text-gray-500 border-b border-gray-50">
+                  <th class="text-left py-2.5 px-4 font-medium">#</th>
+                  <th class="text-left py-2.5 px-4 font-medium">Examen</th>
+                  <th class="text-left py-2.5 px-4 font-medium">Catégorie</th>
+                  <th class="text-right py-2.5 px-4 font-medium">Achats</th>
+                  <th class="text-right py-2.5 px-4 font-medium">Tentatives</th>
+                  <th class="text-right py-2.5 px-4 font-medium">Revenus</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let item of d.top_examens; let i = index"
+                    class="border-b border-gray-50 hover:bg-gray-50 transition">
+                  <td class="py-3 px-4 text-gray-400 font-medium">{{ i + 1 }}</td>
+                  <td class="py-3 px-4">
+                    <p class="font-medium text-gray-800">{{ item.libelle }}</p>
+                    <p class="text-xs text-gray-400">{{ formatCurrency(item.montant_vendu) }}</p>
+                  </td>
+                  <td class="py-3 px-4">
+                    <span class="inline-block text-xs bg-violet-50 text-violet-700 rounded-full px-2 py-0.5">{{ item.categorie }}</span>
+                  </td>
+                  <td class="py-3 px-4 text-right font-semibold text-gray-800">{{ item.total_achats }}</td>
+                  <td class="py-3 px-4 text-right text-gray-600">{{ item.total_tentatives }}</td>
+                  <td class="py-3 px-4 text-right text-gray-600">{{ formatCurrency(item.revenus_generes) }}</td>
+                </tr>
+                <tr *ngIf="d.top_examens.length === 0">
+                  <td colspan="6" class="py-8 text-center text-gray-400 text-sm">Aucun examen</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Top utilisateurs (1/3) -->
+        <div class="bg-white rounded-xl border border-gray-100 shadow-sm">
+          <!-- Tabs -->
+          <div class="flex border-b border-gray-100 px-4 pt-4">
+            <button
+              (click)="activeUserTab = 'depenses'"
+              [class.border-blue-500]="activeUserTab === 'depenses'"
+              [class.text-blue-600]="activeUserTab === 'depenses'"
+              [class.border-transparent]="activeUserTab !== 'depenses'"
+              [class.text-gray-500]="activeUserTab !== 'depenses'"
+              class="pb-3 px-1 mr-4 text-xs font-medium border-b-2 transition">
+              Par dépenses
+            </button>
+            <button
+              (click)="activeUserTab = 'activite'"
+              [class.border-blue-500]="activeUserTab === 'activite'"
+              [class.text-blue-600]="activeUserTab === 'activite'"
+              [class.border-transparent]="activeUserTab !== 'activite'"
+              [class.text-gray-500]="activeUserTab !== 'activite'"
+              class="pb-3 px-1 text-xs font-medium border-b-2 transition">
+              Par activité
+            </button>
+          </div>
+
+          <!-- Par dépenses -->
+          <ul *ngIf="activeUserTab === 'depenses'" class="divide-y divide-gray-50">
+            <li *ngFor="let u of d.top_utilisateurs.par_depenses; let i = index"
+                class="flex items-start gap-3 px-4 py-3 hover:bg-gray-50 transition">
+              <span class="text-xs text-gray-400 font-medium w-4 mt-0.5 shrink-0">{{ i + 1 }}</span>
+              <div class="min-w-0 flex-1">
+                <p class="text-sm font-medium text-gray-800 truncate">{{ u.nom }}</p>
+                <p class="text-xs text-gray-400 truncate">{{ u.email }}</p>
+                <p class="text-xs text-emerald-600 font-medium mt-0.5">{{ formatCurrency(u.total_depense) }}</p>
+              </div>
+              <div class="text-right shrink-0">
+                <p class="text-xs text-gray-400">{{ u.cours_achetes }}c · {{ u.examens_achetes }}e</p>
+              </div>
+            </li>
+            <li *ngIf="d.top_utilisateurs.par_depenses.length === 0" class="py-8 text-center text-gray-400 text-sm">
+              Aucune donnée
+            </li>
+          </ul>
+
+          <!-- Par activité -->
+          <ul *ngIf="activeUserTab === 'activite'" class="divide-y divide-gray-50">
+            <li *ngFor="let u of d.top_utilisateurs.par_activite; let i = index"
+                class="flex items-start gap-3 px-4 py-3 hover:bg-gray-50 transition">
+              <span class="text-xs text-gray-400 font-medium w-4 mt-0.5 shrink-0">{{ i + 1 }}</span>
+              <div class="min-w-0 flex-1">
+                <p class="text-sm font-medium text-gray-800 truncate">{{ u.nom }}</p>
+                <p class="text-xs text-gray-400 truncate">{{ u.email }}</p>
+                <p class="text-xs text-blue-600 font-medium mt-0.5">{{ u.total_activite }} actions</p>
+              </div>
+              <div class="text-right shrink-0">
+                <p class="text-xs text-gray-400">{{ u.tentatives_tests }}t · {{ u.tentatives_examens }}e</p>
+              </div>
+            </li>
+            <li *ngIf="d.top_utilisateurs.par_activite.length === 0" class="py-8 text-center text-gray-400 text-sm">
+              Aucune donnée
+            </li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- ── Section 4: Activité + Taux de réussite ─────────────────────── -->
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+
+        <!-- Flux d'activité récente (2/3) -->
+        <div class="lg:col-span-2 bg-white rounded-xl border border-gray-100 shadow-sm p-5">
+          <h2 class="text-base font-semibold text-gray-900 mb-4">Activité récente</h2>
+
+          <div class="space-y-1 overflow-y-auto max-h-96">
+            <div *ngFor="let item of d.activite_recente.flux"
+                 class="flex items-start gap-3 py-2.5 px-3 rounded-lg hover:bg-gray-50 transition">
+
+              <!-- Dot indicator -->
+              <div class="mt-1.5 shrink-0">
+                <span class="block w-2 h-2 rounded-full" [ngClass]="getActivityDotClass(item.type)"></span>
+              </div>
+
+              <!-- Content -->
+              <div class="flex-1 min-w-0">
+                <div class="flex items-start justify-between gap-2">
+                  <p class="text-sm text-gray-700">
+                    <span class="font-medium text-gray-900">{{ item.utilisateur || item.email }}</span>
+                    {{ getActivityLabel(item) }}
+                    <ng-container *ngIf="item.montant">
+                      <span class="text-emerald-600 font-medium"> · {{ formatCurrency(item.montant) }}</span>
+                    </ng-container>
+                  </p>
+                  <span class="text-xs text-gray-400 shrink-0 mt-0.5">{{ getRelativeTime(item.date) }}</span>
+                </div>
+                <div class="flex items-center gap-2 mt-1">
+                  <span class="text-xs px-1.5 py-0.5 rounded font-medium"
+                        [ngClass]="getActivityBadge(item.type).cls">
+                    {{ getActivityBadge(item.type).label }}
+                  </span>
+                  <span class="text-xs text-gray-400">{{ item.email }}</span>
+                </div>
+              </div>
+            </div>
+
+            <div *ngIf="d.activite_recente.flux.length === 0"
+                 class="py-12 text-center text-gray-400 text-sm">
+              Aucune activité récente
+            </div>
+          </div>
+        </div>
+
+        <!-- Taux de réussite (1/3) -->
+        <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
+          <h2 class="text-base font-semibold text-gray-900 mb-4">Taux de réussite</h2>
+
+          <!-- Global gauges -->
+          <div class="space-y-4 mb-5">
+            <!-- Global -->
+            <div>
+              <div class="flex justify-between text-xs text-gray-500 mb-1.5">
+                <span>Global</span>
+                <span class="font-semibold text-gray-700">{{ d.taux_reussite.taux_global }}%</span>
+              </div>
+              <div class="w-full bg-gray-100 rounded-full h-2.5">
+                <div class="bg-gradient-to-r from-blue-500 to-indigo-500 h-2.5 rounded-full transition-all duration-700"
+                     [style.width]="progressWidth(d.taux_reussite.taux_global)"></div>
+              </div>
+            </div>
+
+            <!-- Examens -->
+            <div>
+              <div class="flex justify-between text-xs text-gray-500 mb-1.5">
+                <span>Examens</span>
+                <span class="font-semibold text-gray-700">{{ d.taux_reussite.taux_global_examens }}%</span>
+              </div>
+              <div class="w-full bg-gray-100 rounded-full h-2.5">
+                <div class="bg-gradient-to-r from-violet-500 to-purple-500 h-2.5 rounded-full transition-all duration-700"
+                     [style.width]="progressWidth(d.taux_reussite.taux_global_examens)"></div>
+              </div>
+            </div>
+
+            <!-- Tests -->
+            <div>
+              <div class="flex justify-between text-xs text-gray-500 mb-1.5">
+                <span>Tests</span>
+                <span class="font-semibold text-gray-700">{{ d.taux_reussite.taux_global_tests }}%</span>
+              </div>
+              <div class="w-full bg-gray-100 rounded-full h-2.5">
+                <div class="bg-gradient-to-r from-amber-400 to-orange-400 h-2.5 rounded-full transition-all duration-700"
+                     [style.width]="progressWidth(d.taux_reussite.taux_global_tests)"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Detail tabs -->
+          <div class="flex border-b border-gray-100 mb-3">
+            <button
+              (click)="activeTauxTab = 'examen'"
+              [class.border-blue-500]="activeTauxTab === 'examen'"
+              [class.text-blue-600]="activeTauxTab === 'examen'"
+              [class.border-transparent]="activeTauxTab !== 'examen'"
+              [class.text-gray-500]="activeTauxTab !== 'examen'"
+              class="pb-2 px-1 mr-4 text-xs font-medium border-b-2 transition">
+              Par examen
+            </button>
+            <button
+              (click)="activeTauxTab = 'test'"
+              [class.border-blue-500]="activeTauxTab === 'test'"
+              [class.text-blue-600]="activeTauxTab === 'test'"
+              [class.border-transparent]="activeTauxTab !== 'test'"
+              [class.text-gray-500]="activeTauxTab !== 'test'"
+              class="pb-2 px-1 text-xs font-medium border-b-2 transition">
+              Par test
+            </button>
+          </div>
+
+          <div class="space-y-3 overflow-y-auto max-h-52">
+            <!-- Par examen -->
+            <ng-container *ngIf="activeTauxTab === 'examen'">
+              <div *ngFor="let item of d.taux_reussite.par_examen" class="space-y-1">
+                <div class="flex justify-between items-center">
+                  <p class="text-xs text-gray-600 truncate pr-2">{{ item.libelle }}</p>
+                  <p class="text-xs font-semibold text-gray-700 shrink-0">{{ item.taux_reussite }}%</p>
+                </div>
+                <div class="flex items-center gap-2">
+                  <div class="flex-1 bg-gray-100 rounded-full h-1.5">
+                    <div class="bg-violet-500 h-1.5 rounded-full"
+                         [style.width]="progressWidth(item.taux_reussite)"></div>
+                  </div>
+                  <span class="text-xs text-gray-400 shrink-0">{{ item.total_tentatives }}</span>
+                </div>
+              </div>
+              <p *ngIf="d.taux_reussite.par_examen.length === 0" class="text-xs text-gray-400 text-center py-4">Aucune donnée</p>
+            </ng-container>
+
+            <!-- Par test -->
+            <ng-container *ngIf="activeTauxTab === 'test'">
+              <div *ngFor="let item of d.taux_reussite.par_test" class="space-y-1">
+                <div class="flex justify-between items-center">
+                  <p class="text-xs text-gray-600 truncate pr-2">{{ item.libelle }}</p>
+                  <p class="text-xs font-semibold text-gray-700 shrink-0">{{ item.taux_reussite }}%</p>
+                </div>
+                <div class="flex items-center gap-2">
+                  <div class="flex-1 bg-gray-100 rounded-full h-1.5">
+                    <div class="bg-amber-500 h-1.5 rounded-full"
+                         [style.width]="progressWidth(item.taux_reussite)"></div>
+                  </div>
+                  <span class="text-xs text-gray-400 shrink-0">{{ item.total_tentatives }}</span>
+                </div>
+              </div>
+              <p *ngIf="d.taux_reussite.par_test.length === 0" class="text-xs text-gray-400 text-center py-4">Aucune donnée</p>
+            </ng-container>
+          </div>
+        </div>
+
+      </div>
+    </ng-container>
+
+  </div>
+</div>

@@ -1,10 +1,10 @@
-import { Component, resource, ResourceStatus } from '@angular/core';
+import { Component } from '@angular/core';
 import { FormBuilder, FormGroup, Validators } from '@angular/forms';
-
 import { Router } from '@angular/router';
 import { finalize } from 'rxjs';
 import { environment } from '../../../../../environments/environment.development';
 import { AuthService } from '../../services/auth.service';
+import { SessionService } from '../../../../core/services/session.service';
 
 @Component({
   selector: 'app-login',
@@ -27,7 +27,12 @@ export class LoginComponent {
   //   }
   // });
 
-  constructor(private fb: FormBuilder,private authService:AuthService,private router: Router,) {
+  constructor(
+    private fb: FormBuilder,
+    private authService: AuthService,
+    private sessionService: SessionService,
+    private router: Router
+  ) {
     this.authForm = this.fb.group({
       email: ['', [Validators.required, Validators.email]],
       password: ['', [Validators.required, Validators.minLength(6)]],
@@ -52,8 +57,9 @@ export class LoginComponent {
             if (response.status) {
               localStorage.setItem(environment.appName + "_token", response.data.token);
               localStorage.setItem(environment.appName + '_user', JSON.stringify(response.data));
-            // Naviguer vers l'URL décodée
-            this.router.navigate(['/dashboard'])
+              this.authService.saveLoginTime();
+              this.sessionService.start();
+              this.router.navigate(['/dashboard']);
             }
           },
           error: (error: any) => {
